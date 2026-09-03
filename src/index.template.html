@@ -1,0 +1,2951 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0f1c">
+<title>UCN Mission Analytics</title>
+<style>
+:root{
+  color-scheme: dark;
+  --navy:#1B2A5E;  --navy-dark:#111a3d;  --orange:#DD7A2B;  --red:#B23A3A;
+  --white:#ffffff;
+  --bg:#0b0f1c;    --bg2:#0f1730;
+  --card:#141c38;  --card-hi:#1b254a;    --border:#2a3a66;
+  --text:#e8ecf7;  --muted:#8c98bf;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --font-display:'Orbitron', 'Exo 2', system-ui, sans-serif;
+  --font-body:'Exo 2', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --header-h: 96px;
+}
+*{ -webkit-tap-highlight-color:transparent; box-sizing:border-box; }
+:focus-visible{ outline:2px solid var(--orange); outline-offset:2px; }
+html,body{ margin:0; padding:0; }
+body{
+  background:radial-gradient(ellipse at top, #101a38 0%, var(--bg) 55%);
+  background-attachment:fixed;
+  overscroll-behavior:none;
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  line-height:1.45;
+  min-height:100vh;
+  -webkit-text-size-adjust:100%;
+}
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(rgba(221,122,43,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(221,122,43,0.025) 1px, transparent 1px);
+  background-size:28px 28px; opacity:0.5;
+}
+header, main, nav, .toast, .scrim{ position:relative; z-index:1; }
+
+/* ---------- header ---------- */
+header{
+  position:fixed; top:0; left:0; right:0; z-index:40;
+  background:linear-gradient(180deg, rgba(17,26,61,0.98) 0%, rgba(11,15,28,0.96) 100%);
+  border-bottom:1px solid var(--border);
+  padding-top:var(--safe-top);
+  backdrop-filter:blur(8px);
+}
+.hd-inner{ max-width:520px; margin:0 auto; padding:8px 12px 8px; }
+.hd-top{ display:flex; align-items:center; gap:9px; }
+.hd-mark{ width:26px; height:26px; flex:0 0 26px; }
+.hd-titles{ flex:1; min-width:0; }
+.hd-title{
+  font-family:var(--font-display); font-weight:700; font-size:15px;
+  letter-spacing:0.08em; text-transform:uppercase; color:var(--white);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.15;
+}
+.hd-sub{
+  font-family:var(--font-display); font-size:9px; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--orange); margin-top:2px;
+}
+.hd-btn{
+  font-family:var(--font-display); font-size:11px; font-weight:700; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--text);
+  background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:9px;
+  padding:5px 9px; display:flex; flex-direction:column; align-items:center; gap:1px;
+  cursor:pointer; line-height:1.1;
+}
+.hd-btn span.ic{ font-size:13px; }
+.hd-meta{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+.hd-meta.hidden{ display:none; }
+.chip{
+  font-family:var(--font-display); font-size:9px; letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--text); background:var(--navy); border:1px solid var(--border);
+  border-radius:7px; padding:3px 7px; max-width:100%; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;
+}
+.chip.accent{ border-color:var(--orange); color:#ffd8b4; }
+.chip .k{ color:var(--muted); }
+
+/* ---------- main / panels ---------- */
+main{
+  max-width:520px; margin:0 auto;
+  padding-top:var(--header-h);
+  padding-bottom:calc(84px + var(--safe-bottom));
+}
+.panel{ display:none; padding:12px 12px 24px; }
+.panel.active{ display:block; animation:fadeUp .18s ease-out; }
+@keyframes fadeUp{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+@media (prefers-reduced-motion: reduce){ .panel.active{ animation:none; } }
+
+/* ---------- headings ---------- */
+h2.sec{
+  font-family:var(--font-display); font-size:13px; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--orange); font-weight:700;
+  margin:18px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--border);
+}
+h2.sec:first-child{ margin-top:4px; }
+.sub{ font-size:11px; color:var(--muted); margin:-4px 0 10px; }
+.empty{ font-style:italic; color:var(--muted); font-size:13px; margin:6px 0; }
+
+/* ---------- card ---------- */
+.card{
+  background:linear-gradient(160deg, var(--card) 0%, var(--card-hi) 100%);
+  border:1px solid var(--border); border-radius:14px; padding:12px 12px 10px;
+  margin-bottom:10px;
+}
+.card-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.badge{
+  font-family:var(--font-display); font-size:12px; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; color:var(--white); background:var(--navy);
+  border:1px solid var(--orange); border-radius:7px; padding:4px 9px;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.card-head .grow{ flex:1; min-width:0; }
+.del{
+  width:30px; height:30px; flex:0 0 30px; border-radius:50%;
+  background:rgba(178,58,58,0.18); border:1px solid var(--red); color:#ff9d9d;
+  font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.kv{ display:flex; gap:8px; font-size:13px; margin-top:3px; }
+.kv .k{
+  font-family:var(--font-display); font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--muted); flex:0 0 84px; padding-top:2px;
+}
+.kv .v{ flex:1; min-width:0; word-break:break-word; }
+
+/* ---------- fields ---------- */
+.field{ margin-bottom:10px; }
+label{
+  display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em;
+  color:var(--muted); font-weight:600; margin-bottom:3px;
+}
+input, select, textarea{
+  width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border);
+  color:var(--text); border-radius:9px; padding:10px; font-size:14px;
+  font-family:var(--font-body);
+  transition:border-color .2s, background-color .2s;
+}
+input:focus, select:focus, textarea:focus{
+  outline:none; border-color:var(--orange); background:rgba(221,122,43,0.08);
+}
+select option{ color:#16204a; background:#ffffff; }
+textarea{ resize:vertical; min-height:70px; line-height:1.5; }
+.row2{ display:flex; gap:8px; }
+.row2 > *{ flex:1; min-width:0; }
+.hint{ font-size:11px; color:var(--muted); margin-top:4px; }
+.threat-green{ border-color:#2f7d4f !important; background:rgba(47,125,79,0.16) !important; }
+.threat-orange{ border-color:var(--orange) !important; background:rgba(221,122,43,0.14) !important; }
+.threat-red{ border-color:var(--red) !important; background:rgba(178,58,58,0.18) !important; }
+.hidden{ display:none !important; }
+
+/* ---------- buttons ---------- */
+.btn-primary{
+  display:block; width:100%; background:var(--orange); color:#241100;
+  border:none; border-radius:16px; padding:22px 14px; font-size:17px; font-weight:700;
+  font-family:var(--font-body); letter-spacing:0.01em; cursor:pointer;
+  box-shadow:0 0 18px rgba(221,122,43,0.28), 0 4px 14px rgba(0,0,0,0.35);
+  margin:14px 0 4px;
+}
+.btn-primary:disabled{ opacity:0.45; box-shadow:none; cursor:not-allowed; }
+.btn-add{
+  display:block; width:100%; background:rgba(221,122,43,0.12);
+  border:1.5px dashed var(--orange); border-radius:12px; color:var(--orange);
+  padding:12px; font-size:14px; font-weight:600; font-family:var(--font-body);
+  cursor:pointer; text-align:center; margin:6px 0 10px;
+}
+.btn-quiet{
+  display:block; width:100%; background:rgba(255,255,255,0.05);
+  border:1px solid var(--border); border-radius:12px; color:var(--text);
+  padding:12px; font-size:14px; font-family:var(--font-body); cursor:pointer;
+  margin:6px 0; text-align:center;
+}
+.btn-danger{
+  display:block; width:100%; background:rgba(178,58,58,0.18);
+  border:1px solid var(--red); border-radius:12px; color:#ff9d9d;
+  padding:12px; font-size:14px; font-weight:600; font-family:var(--font-body);
+  cursor:pointer; margin:6px 0; text-align:center;
+}
+.btn-row{ display:flex; gap:8px; }
+.btn-row > *{ flex:1; min-width:0; margin-top:6px; margin-bottom:6px; }
+
+/* ---------- collapsible ---------- */
+.coll-tog{
+  display:flex; align-items:center; justify-content:space-between; width:100%;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:12px;
+  color:var(--muted); font-family:var(--font-display); font-size:10.5px; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase; padding:11px 12px; cursor:pointer;
+  margin:10px 0 0;
+}
+.coll-tog .chev{ transition:transform .18s ease; font-size:12px; }
+.coll-tog[aria-expanded="true"]{ color:var(--text); border-color:var(--orange); }
+.coll-tog[aria-expanded="true"] .chev{ transform:rotate(180deg); }
+.coll-body{ display:none; padding:10px 0 0; }
+.coll-body.open{ display:block; }
+
+/* ---------- banner ---------- */
+.banner{
+  border:1px solid var(--red); background:rgba(178,58,58,0.18); border-radius:12px;
+  padding:10px 12px; margin:10px 0; font-size:12.5px; color:#ffd6d6;
+}
+.banner b{
+  display:block; font-family:var(--font-display); font-size:10.5px; letter-spacing:0.08em;
+  text-transform:uppercase; color:#ff9d9d; margin-bottom:3px;
+}
+.banner-note{
+  border:1px solid var(--border); background:rgba(255,255,255,0.04); border-radius:12px;
+  padding:10px 12px; margin:10px 0; font-size:12.5px; color:var(--muted);
+}
+
+/* ---------- tiles ---------- */
+.tiles{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.tile{
+  background:linear-gradient(160deg, var(--card) 0%, var(--card-hi) 100%);
+  border:1px solid var(--border); border-radius:14px; padding:10px 11px 9px;
+}
+.tile-k{
+  font-size:9.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);
+  font-weight:600; line-height:1.2;
+}
+.tile-v{
+  font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:0.03em;
+  color:var(--white); margin-top:4px; line-height:1.15;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.tile-v.sm{ font-size:13px; letter-spacing:0.05em; }
+.tile-v.accent{ color:var(--orange); }
+
+/* ---------- charts ---------- */
+.chart-wrap{ margin:2px 0 4px; }
+.chart-wrap svg{ display:block; width:100%; height:auto; }
+.chart-cap{
+  font-family:var(--font-display); font-size:9.5px; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--muted); margin:2px 0 8px;
+}
+.meter{ display:flex; align-items:center; gap:8px; margin:0 0 8px; }
+.meter-label{
+  flex:0 0 96px; font-size:11.5px; color:var(--text); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;
+}
+.meter-track{
+  flex:1; height:12px; background:rgba(255,255,255,0.06);
+  border:1px solid var(--border); border-radius:7px; overflow:hidden;
+}
+.meter-fill{ display:block; height:100%; min-width:2px;
+  background:linear-gradient(90deg,#b8621f 0%, var(--orange) 100%); }
+.meter-val{
+  flex:0 0 64px; text-align:right; font-family:var(--font-display); font-size:11px;
+  color:var(--text); letter-spacing:0.03em; white-space:nowrap;
+}
+
+/* ---------- star rating ---------- */
+.stars{ display:flex; align-items:center; gap:5px; }
+.star-btn{ background:none; border:none; padding:2px; margin:0; cursor:pointer; line-height:0; }
+.star-ic{ width:23px; height:23px; display:block; }
+.stars-read .star-ic{ width:14px; height:14px; }
+.star-clear{
+  background:none; border:none; cursor:pointer; margin-left:6px; padding:2px 4px;
+  font-family:var(--font-display); font-size:9px; letter-spacing:0.07em;
+  text-transform:uppercase; color:var(--muted);
+}
+.rate-row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+.rate-row .k{
+  font-family:var(--font-display); font-size:9.5px; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--muted); flex:0 0 84px;
+}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  background:linear-gradient(180deg, rgba(15,23,48,0.97) 0%, rgba(11,15,28,0.99) 100%);
+  border-top:1px solid var(--border);
+  padding-bottom:var(--safe-bottom);
+}
+.nav-inner{ max-width:520px; margin:0 auto; display:flex; }
+.nav-btn{
+  flex:1; background:none; border:none; cursor:pointer; position:relative;
+  padding:9px 2px 10px; display:flex; flex-direction:column; align-items:center; gap:3px;
+  color:rgba(255,255,255,0.55);
+}
+.nav-btn .ic{ font-size:20px; line-height:1; }
+.nav-btn .lb{
+  font-family:var(--font-display); font-size:9.5px; font-weight:700; letter-spacing:0.07em;
+  text-transform:uppercase;
+}
+.nav-btn.active{ color:var(--white); }
+.nav-btn.active::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--orange);
+}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed; left:50%; bottom:calc(96px + var(--safe-bottom)); transform:translate(-50%, 14px);
+  background:var(--orange); color:#241100; font-weight:700; font-size:13px;
+  padding:10px 18px; border-radius:24px; z-index:60; opacity:0; pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease; max-width:88vw; text-align:center;
+}
+.toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+/* ---------- sheet ---------- */
+.scrim{
+  position:fixed; inset:0; background:rgba(8,12,24,0.72); z-index:50;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.scrim.hidden{ display:none; }
+.sheet{
+  width:100%; max-width:520px; max-height:88vh; overflow-y:auto;
+  background:linear-gradient(160deg, var(--card) 0%, var(--card-hi) 100%);
+  border-radius:18px 18px 0 0; border-top:2px solid var(--orange);
+  padding:14px 14px calc(18px + var(--safe-bottom));
+}
+.sheet h3{
+  font-family:var(--font-display); font-size:13px; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--orange); margin:0 0 4px; font-weight:700;
+}
+.sheet p.lead{ font-size:13px; color:var(--text); margin:0 0 10px; }
+
+/* ---------- switch ---------- */
+.sw-row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+.sw-row .sw-lb{ flex:1; min-width:0; font-size:13px; }
+.sw{
+  flex:0 0 46px; width:46px; height:26px; border-radius:13px; border:1px solid var(--border);
+  background:rgba(255,255,255,0.08); position:relative; cursor:pointer; padding:0;
+  transition:background-color .18s ease, border-color .18s ease;
+}
+.sw::after{
+  content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+  background:var(--white); transition:transform .18s ease;
+}
+.sw[aria-checked="true"]{ background:var(--orange); border-color:var(--orange); }
+.sw[aria-checked="true"]::after{ transform:translateX(20px); }
+
+/* ---------- misc ---------- */
+.filelabel{ display:block; }
+.filelabel input[type=file]{
+  position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;
+}
+.mono{ font-variant-numeric:tabular-nums; }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.legal{ font-size:11.5px; color:var(--muted); line-height:1.55; }
+.legal code{ font-size:11px; color:var(--text); }
+.pre{
+  font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:var(--muted);
+  background:rgba(0,0,0,0.28); border:1px solid var(--border); border-radius:9px;
+  padding:9px; overflow-x:auto; white-space:pre;
+}
+.skiplist{ max-height:180px; overflow-y:auto; }
+</style>
+<!-- Vendored font binaries (Exo 2 + Orbitron, SIL Open Font License 1.1).
+     Base64 TTFs are used twice: once for CSS @font-face and once for jsPDF's VFS. -->
+<script id="ucn-fontdata">
+var UCN_FONTS = {
+  exo2Regular: "__B64_EXO2_REGULAR__",
+  exo2Bold: "__B64_EXO2_BOLD__",
+  exo2Italic: "__B64_EXO2_ITALIC__",
+  orbitronBold: "__B64_ORBITRON_BOLD__"
+};
+</script>
+<!-- Vendored jsPDF 4.2.1 (MIT). Unmodified UMD build. -->
+<script id="ucn-jspdf">__JSPDF_UMD__</script>
+<script id="ucn-app">
+(function(){
+'use strict';
+
+/* =====================================================================
+   0. FONT FACES  (injected before first paint, from the inlined base64)
+   ===================================================================== */
+function injectFontFaces(){
+  var css = '';
+  function face(family, weight, style, b64){
+    return '@font-face{font-family:"' + family + '";font-style:' + style +
+           ';font-weight:' + weight + ';font-display:block;src:url(data:font/ttf;base64,' +
+           b64 + ') format("truetype");}';
+  }
+  css += face('Exo 2', '100 600', 'normal', UCN_FONTS.exo2Regular);
+  css += face('Exo 2', '601 900', 'normal', UCN_FONTS.exo2Bold);
+  css += face('Exo 2', '100 900', 'italic', UCN_FONTS.exo2Italic);
+  css += face('Orbitron', '100 900', 'normal', UCN_FONTS.orbitronBold);
+  var s = document.createElement('style');
+  s.setAttribute('data-ucn', 'fonts');
+  s.appendChild(document.createTextNode(css));
+  (document.head || document.documentElement).appendChild(s);
+}
+injectFontFaces();
+
+/* =====================================================================
+   1. SHARED DROPDOWN DATA  (UCN tool suite - keep verbatim across tools)
+   ===================================================================== */
+var RANKS = ['Cadet','Ensign','Sub Lt','Lieutenant','Lt Cmdr','Commander','Captain',
+             'Commodore','Rear Admiral','Vice Admiral','Admiral','Admiral of the Fleet'];
+
+var SHIPS = ['UCS Takanami','UCS Havock'];
+
+var MISSION_TYPES = ['Frontline','Diplomacy','Exploration','Intrigue','Military',
+                     'Campaign'];
+
+var AUTHORISATIONS = ['Diplomatic protocol','Engage with discretion','Seek and destroy'];
+
+var THREAT_LEVELS = ['Monitor (Green)','Alert (Orange)','Active (Red)'];
+
+var SHIP_ROLES = ['Captain','First Officer','Helm','Navigation','Comms',
+                  'Power Management','Damage Control','Radar','Drone Operator',
+                  'Beams','Missiles'];
+
+var SHUTTLE_ROLES = ['Shuttle Helm','Shuttle Generalist','Shuttle Engineer'];
+
+var PRONOUN_PRESETS = ['he/him','she/her','they/them','he/they','she/they'];
+
+var ALL_ROLES = SHIP_ROLES.concat(SHUTTLE_ROLES);
+var OTHER = '__other__';
+
+var IN_UNIVERSE_YEAR_OFFSET = 156;              /* 2182 - 2026 */
+
+var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun',
+                  'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+var STORE_KEY = 'ucn.missionAnalytics.v1';
+var APP_TITLE = 'UCN Mission Analytics';
+
+/* =====================================================================
+   2. SMALL UTILITIES
+   ===================================================================== */
+function byId(id){ return document.getElementById(id); }
+function qsa(sel, root){
+  return Array.prototype.slice.call((root || document).querySelectorAll(sel));
+}
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function trim(s){ return String(s == null ? '' : s).replace(/^\s+|\s+$/g, ''); }
+/* Imported text is data. Control bytes are folded to spaces so a stray byte
+   cannot corrupt a PDF string or the DOM. The text is never interpreted. */
+function clean(s){
+  s = String(s == null ? '' : s);
+  var out = '', i, c;
+  for (i = 0; i < s.length; i++){
+    c = s.charCodeAt(i);
+    out += (c < 32 || c === 127) ? ' ' : s.charAt(i);
+  }
+  return trim(out);
+}
+function on(node, ev, fn){ if (node) node.addEventListener(ev, fn, false); }
+function uid(){
+  return 'm' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+}
+function has(arr, v){
+  for (var i = 0; i < arr.length; i++){ if (arr[i] === v) return true; }
+  return false;
+}
+
+function todayInUniverseISO(){
+  var n = new Date();                            /* LOCAL parts, not toISOString() */
+  return (n.getFullYear() + IN_UNIVERSE_YEAR_OFFSET) + '-' +
+         pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+}
+function nowLocalTime(){
+  var n = new Date();
+  return pad2(n.getHours()) + ':' + pad2(n.getMinutes());
+}
+function monthKeyOf(iso){ return iso.slice(0, 7); }
+function monthLabel(key){
+  var p = key.split('-');
+  return MONTH_ABBR[parseInt(p[1], 10) - 1] + ' ' + p[0];
+}
+/* Every month between two YYYY-MM keys inclusive, so a quiet month shows as
+   zero rather than closing up and faking continuous activity. */
+function monthSpan(fromKey, toKey){
+  var out = [];
+  var y = parseInt(fromKey.slice(0, 4), 10), m = parseInt(fromKey.slice(5, 7), 10);
+  var ey = parseInt(toKey.slice(0, 4), 10), em = parseInt(toKey.slice(5, 7), 10);
+  var guard = 0;
+  while ((y < ey || (y === ey && m <= em)) && guard++ < 1200){
+    out.push(y + '-' + pad2(m));
+    m++; if (m > 12){ m = 1; y++; }
+  }
+  return out;
+}
+/* Fixed axis ceilings so two reports are comparable at a glance. */
+function pinnedMax(v, base, step){
+  var m = base;
+  while (m < v) m += step;
+  return m;
+}
+/* Pick a gridline count that divides the ceiling evenly, so the axis reads
+   0/2/4/6/8/10 rather than 0/3/5/8/10. */
+function niceTicks(yMax){
+  var cands = [5, 4, 3, 2], i;
+  for (i = 0; i < cands.length; i++){ if (yMax % cands[i] === 0) return cands[i]; }
+  return 4;
+}
+
+/* =====================================================================
+   3. STATE + PERSISTENCE
+   ===================================================================== */
+function blankSetup(){
+  return { loggedBy:'', rank:'', firstDeployment:'' };
+}
+function blankImport(){
+  return { filename:'', importedAt:'', rowsRead:0, rowsImported:0, skipped:[] };
+}
+var state = {
+  setup: blankSetup(),
+  missions: [],
+  imp: blankImport(),
+  ui: { tab:'setup', headerHidden:false, filters:{ ship:'', role:'', type:'', year:'' } }
+};
+
+var storageOk = true;
+function storageProbe(){
+  try {
+    window.localStorage.setItem(STORE_KEY + '.probe', '1');
+    window.localStorage.removeItem(STORE_KEY + '.probe');
+    return true;
+  } catch (e){ return false; }
+}
+function save(){
+  if (!storageOk) return;
+  try {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({
+      v:1, setup:state.setup, missions:state.missions, imp:state.imp, ui:state.ui
+    }));
+  } catch (e){
+    storageOk = false;
+    renderStorageBanner();
+    toast('Storage full - data is no longer being saved');
+  }
+}
+function load(){
+  if (!storageOk) return;
+  var raw;
+  try { raw = window.localStorage.getItem(STORE_KEY); } catch (e){ return; }
+  if (!raw) return;
+  var d;
+  try { d = JSON.parse(raw); } catch (e){ return; }
+  if (!d || typeof d !== 'object') return;
+  if (d.setup) state.setup = mergeInto(blankSetup(), d.setup);
+  if (d.imp) state.imp = mergeInto(blankImport(), d.imp);
+  if (d.missions && d.missions.length) state.missions = normaliseMissions(d.missions);
+  if (d.ui){
+    if (d.ui.tab) state.ui.tab = d.ui.tab;
+    state.ui.headerHidden = !!d.ui.headerHidden;
+    if (d.ui.filters) state.ui.filters = mergeInto(state.ui.filters, d.ui.filters);
+  }
+}
+function mergeInto(base, src){
+  for (var k in base){
+    if (Object.prototype.hasOwnProperty.call(base, k) &&
+        Object.prototype.hasOwnProperty.call(src, k) && src[k] != null){
+      base[k] = src[k];
+    }
+  }
+  return base;
+}
+/* Ratings are optional: null means "not rated", never zero stars. */
+function normaliseRating(v){
+  var n = parseInt(v, 10);
+  return (isFinite(n) && n >= 1 && n <= 5) ? n : null;
+}
+function normaliseMissions(arr){
+  var out = [], i, m;
+  for (i = 0; i < arr.length; i++){
+    m = arr[i];
+    if (!m || !m.date) continue;
+    out.push({
+      id: m.id || uid(),
+      date: clean(m.date).slice(0, 10),
+      ship: clean(m.ship), role: clean(m.role), name: clean(m.name),
+      type: clean(m.type), outcome: clean(m.outcome),
+      duration: (typeof m.duration === 'number' && isFinite(m.duration)) ? m.duration : null,
+      rating: normaliseRating(m.rating),
+      notes: clean(m.notes)
+    });
+  }
+  return out;
+}
+
+/* =====================================================================
+   4. TOAST / SHEET / COLLAPSIBLE  (shared chrome)
+   ===================================================================== */
+var toastTimer = null;
+function toast(msg){
+  var t = byId('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast show';
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(function(){ t.className = 'toast'; }, 1800);
+}
+
+var sheetReturnFocus = null;
+var sheetOnClose = null;
+function openSheet(titleHtml, bodyHtml, trigger){
+  var scrim = byId('scrim'), sheet = byId('sheet');
+  sheet.innerHTML = '<h3 id="sheetTitle">' + titleHtml + '</h3>' + bodyHtml;
+  scrim.className = 'scrim';
+  sheetReturnFocus = trigger || document.activeElement;
+  var focusables = sheetFocusables();
+  if (focusables.length) focusables[0].focus();
+  else sheet.focus();
+}
+function sheetFocusables(){
+  return qsa('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])', byId('sheet'))
+    .filter(function(n){ return !n.disabled && n.offsetParent !== null; });
+}
+function closeSheet(){
+  var scrim = byId('scrim');
+  if (scrim.className.indexOf('hidden') > -1) return;
+  scrim.className = 'scrim hidden';
+  byId('sheet').innerHTML = '';
+  var cb = sheetOnClose; sheetOnClose = null;
+  if (sheetReturnFocus && sheetReturnFocus.focus) sheetReturnFocus.focus();
+  sheetReturnFocus = null;
+  if (cb) cb();
+}
+/* Destructive actions confirm first, in the same bottom sheet. */
+function confirmSheet(title, message, okLabel, onOk, trigger){
+  openSheet(esc(title),
+    '<p class="lead">' + esc(message) + '</p>' +
+    '<div class="btn-row">' +
+      '<button type="button" class="btn-quiet" id="cfNo">Cancel</button>' +
+      '<button type="button" class="btn-danger" id="cfYes">' + esc(okLabel) + '</button>' +
+    '</div>', trigger);
+  on(byId('cfNo'), 'click', closeSheet);
+  on(byId('cfYes'), 'click', function(){ closeSheet(); onOk(); });
+}
+function wireSheetGlobals(){
+  on(byId('scrim'), 'mousedown', function(e){
+    if (e.target !== byId('scrim')) return;
+    e.preventDefault();          /* keep the browser from blurring the trigger */
+    closeSheet();
+  });
+  on(document, 'keydown', function(e){
+    var scrim = byId('scrim');
+    if (!scrim || scrim.className.indexOf('hidden') > -1) return;
+    if (e.key === 'Escape' || e.keyCode === 27){ e.preventDefault(); closeSheet(); return; }
+    if (e.key === 'Tab' || e.keyCode === 9){
+      var f = sheetFocusables();
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  });
+}
+
+function wireCollapsibles(){
+  qsa('.coll-tog').forEach(function(btn){
+    on(btn, 'click', function(){
+      var body = byId(btn.getAttribute('aria-controls'));
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      body.className = open ? 'coll-body' : 'coll-body open';
+    });
+  });
+}
+
+/* =====================================================================
+   5. SELECT BUILDING  (all lists lead with an empty "- Select -" option)
+   ===================================================================== */
+var SELECT_PLACEHOLDER = '— Select —';
+function optionHtml(v, label, sel){
+  return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' +
+         esc(label) + '</option>';
+}
+/* items may be strings, or {group:'..', items:[..]} for optgroups.
+   `other` adds the "Other..." sentinel that reveals a free-text input. */
+function fillSelect(sel, items, current, opts){
+  opts = opts || {};
+  var html = optionHtml('', opts.placeholder || SELECT_PLACEHOLDER, current);
+  var known = false, i, j, grp;
+  for (i = 0; i < items.length; i++){
+    if (typeof items[i] === 'string'){
+      html += optionHtml(items[i], items[i], current);
+      if (items[i] === current) known = true;
+    } else {
+      grp = items[i];
+      html += '<optgroup label="' + esc(grp.group) + '">';
+      for (j = 0; j < grp.items.length; j++){
+        html += optionHtml(grp.items[j], grp.items[j], current);
+        if (grp.items[j] === current) known = true;
+      }
+      html += '</optgroup>';
+    }
+  }
+  if (opts.other){
+    /* A stored value that is not on the list is a typed "Other..." value:
+       keep the sentinel selected and let the text input carry the words. */
+    html += optionHtml(OTHER, 'Other…', (current && !known) ? current : '');
+    if (current && !known) html = html.replace('value="' + OTHER + '"',
+      'value="' + OTHER + '" selected');
+  }
+  sel.innerHTML = html;
+  if (current && !known && opts.other) sel.value = OTHER;
+  else sel.value = current || '';
+}
+/* Ties a select to its "Other..." text input: the text input is what gets
+   stored, so downstream code never sees the sentinel. */
+function bindOther(selId, otherId, onChange){
+  var sel = byId(selId), other = byId(otherId);
+  function sync(){
+    var isOther = sel.value === OTHER;
+    other.parentNode.className = isOther ? 'field' : 'field hidden';
+    if (!isOther) other.value = '';
+    if (onChange) onChange();
+  }
+  on(sel, 'change', sync);
+  on(other, 'input', function(){ if (onChange) onChange(); });
+  sync();
+}
+function readOther(selId, otherId){
+  var sel = byId(selId), other = byId(otherId);
+  if (sel.value === OTHER) return clean(other.value);
+  return sel.value;
+}
+function writeOther(selId, otherId, value, items, opts){
+  var sel = byId(selId), other = byId(otherId);
+  fillSelect(sel, items, value, opts);
+  if (sel.value === OTHER){
+    other.value = value;
+    other.parentNode.className = 'field';
+  } else {
+    other.parentNode.className = 'field hidden';
+  }
+}
+
+/* =====================================================================
+   6. SETUP TAB
+   ===================================================================== */
+var ROLE_GROUPS = [
+  { group:'Ship roles', items: SHIP_ROLES },
+  { group:'Shuttle roles', items: SHUTTLE_ROLES }
+];
+
+function buildSetup(){
+  var s = state.setup;
+  writeOther('suRank', 'suRankOther', s.rank, RANKS, { other:true });
+  byId('suLoggedBy').value = s.loggedBy;
+  byId('suFirst').value = s.firstDeployment;
+  renderFirstDeploymentNote();
+}
+
+/* The first deployment is read off the log rather than typed. It only ever
+   fills an empty field, so a date the user set by hand is never overwritten. */
+function earliestMissionDate(){
+  var d = '', i;
+  for (i = 0; i < state.missions.length; i++){
+    if (!d || state.missions[i].date < d) d = state.missions[i].date;
+  }
+  return d;
+}
+function applyDerivedFirstDeployment(){
+  var earliest = earliestMissionDate();
+  if (earliest && !byId('suFirst').value){
+    byId('suFirst').value = earliest;
+    state.setup.firstDeployment = earliest;
+    save();
+  }
+  renderFirstDeploymentNote();
+}
+function renderFirstDeploymentNote(){
+  var earliest = earliestMissionDate();
+  var note = byId('suFirstNote');
+  if (!earliest){
+    note.textContent = 'Filled in from your CSV once you import one. You can also set it by hand.';
+  } else if (byId('suFirst').value === earliest){
+    note.textContent = 'Taken from your earliest logged mission (' + earliest + ').';
+  } else {
+    note.textContent = 'Earliest logged mission is ' + earliest + '. Clear this field to use that.';
+  }
+}
+
+function readSetup(){
+  var s = state.setup;
+  s.loggedBy = clean(byId('suLoggedBy').value);
+  s.rank = readOther('suRank', 'suRankOther');
+  s.firstDeployment = byId('suFirst').value;
+}
+function onSetupInput(){
+  readSetup();
+  renderFirstDeploymentNote();
+  renderHeaderMeta();
+  save();
+}
+
+function wireSetup(){
+  ['suLoggedBy', 'suRankOther', 'suFirst'].forEach(function(id){
+    on(byId(id), 'input', onSetupInput);
+  });
+  bindOther('suRank', 'suRankOther', onSetupInput);
+
+  on(byId('setupGo'), 'click', function(){
+    onSetupInput();
+    setTab('import');
+  });
+
+  on(byId('newSession'), 'click', function(ev){
+    confirmSheet('New record',
+      'This clears every logged mission and both setup fields. Export a PDF or a ' +
+      'JSON backup first if you want to keep this one.',
+      'Clear everything', function(){
+        state.setup = blankSetup();
+        state.missions = [];
+        state.imp = blankImport();
+        state.ui.filters = { ship:'', role:'', type:'', year:'' };
+        buildSetup();
+        renderAll();
+        setTab('setup');
+        toast('New record started');
+      }, ev.currentTarget);
+  });
+}
+
+/* =====================================================================
+   7. HEADER + TABS
+   ===================================================================== */
+function renderHeaderMeta(){
+  var s = state.setup, bits = [];
+  function chip(k, v, accent){
+    if (!v) return;
+    bits.push('<span class="chip' + (accent ? ' accent' : '') + '">' +
+              '<span class="k">' + esc(k) + '</span> ' + esc(v) + '</span>');
+  }
+  chip('Name', s.loggedBy, true);
+  chip('Rank', s.rank);
+  chip('First deployment', s.firstDeployment);
+  bits.push('<span class="chip"><span class="k">Missions</span> ' +
+            state.missions.length + '</span>');
+  var box = byId('hdMeta');
+  box.innerHTML = bits.join('');
+  box.className = state.ui.headerHidden ? 'hd-meta hidden' : 'hd-meta';
+  publishHeaderHeight();
+}
+function publishHeaderHeight(){
+  var h = byId('appHeader').offsetHeight;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+function wireHeader(){
+  var btn = byId('hdToggle');
+  function paint(){
+    btn.setAttribute('aria-expanded', state.ui.headerHidden ? 'false' : 'true');
+    btn.innerHTML = '<span class="ic">' + (state.ui.headerHidden ? '👁' : '🙈') +
+                    '</span>' + (state.ui.headerHidden ? 'Show' : 'Hide');
+    byId('hdMeta').className = state.ui.headerHidden ? 'hd-meta hidden' : 'hd-meta';
+    publishHeaderHeight();
+  }
+  on(btn, 'click', function(){
+    state.ui.headerHidden = !state.ui.headerHidden;
+    paint(); save();
+  });
+  paint();
+  on(window, 'resize', publishHeaderHeight);
+}
+
+var TABS = ['setup','import','analytics','log','more'];
+function setTab(name){
+  if (!has(TABS, name)) name = 'setup';
+  state.ui.tab = name;
+  TABS.forEach(function(t){
+    byId('tab-' + t).className = (t === name) ? 'panel active' : 'panel';
+    var b = byId('nav-' + t);
+    b.className = (t === name) ? 'nav-btn active' : 'nav-btn';
+    b.setAttribute('aria-selected', t === name ? 'true' : 'false');
+  });
+  if (name === 'analytics') renderAnalytics();
+  if (name === 'log') renderLog();
+  if (window.scrollTo) window.scrollTo(0, 0);
+  save();
+}
+function wireNav(){
+  TABS.forEach(function(t){
+    on(byId('nav-' + t), 'click', function(){ setTab(t); });
+  });
+}
+
+/* =====================================================================
+   8. CSV PARSING
+   ===================================================================== */
+/* RFC4180-ish reader: quoted fields, doubled quotes, embedded newlines,
+   CR/CRLF/LF line endings, BOM. Returns an array of string arrays. */
+function parseCsv(text, delim){
+  var rows = [], row = [], field = '', i = 0, inQ = false, c, n;
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  for (i = 0; i < text.length; i++){
+    c = text.charAt(i);
+    if (inQ){
+      if (c === '"'){
+        n = text.charAt(i + 1);
+        if (n === '"'){ field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"'){ inQ = true; }
+      else if (c === delim){ row.push(field); field = ''; }
+      else if (c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r'){ /* handled by the \n that follows, or ignored */ }
+      else field += c;
+    }
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  /* Drop trailing blank lines. */
+  while (rows.length && rows[rows.length - 1].length === 1 && trim(rows[rows.length - 1][0]) === ''){
+    rows.pop();
+  }
+  return rows;
+}
+function detectDelimiter(text){
+  var head = text.split('\n').slice(0, 5).join('\n');
+  var cands = [',', ';', '\t', '|'], best = ',', bestN = -1, i, n, inQ, j, c;
+  for (i = 0; i < cands.length; i++){
+    n = 0; inQ = false;
+    for (j = 0; j < head.length; j++){
+      c = head.charAt(j);
+      if (c === '"') inQ = !inQ;
+      else if (!inQ && c === cands[i]) n++;
+    }
+    if (n > bestN){ bestN = n; best = cands[i]; }
+  }
+  return bestN > 0 ? best : ',';
+}
+function normHeader(s){
+  return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+var COLUMN_GUESS = {
+  date:     ['date','missiondate','sortiedate','day','when','datetime','timestamp','dateflown'],
+  ship:     ['ship','vessel','shipname','craft','hull','boat'],
+  role:     ['role','position','station','post','seat','job'],
+  name:     ['mission','missionname','name','title','operation','op','sortie'],
+  type:     ['missiontype','type','category','kind','class'],
+  outcome:  ['outcome','result','status','resolution','verdict'],
+  duration: ['duration','minutes','mins','length','runtime','durationmins'],
+  rating: ['rating','stars','score','rating5','starrating','outof5'],
+  notes:    ['notes','note','comment','comments','remarks','debrief','summary']
+};
+function guessColumns(headers){
+  var map = { date:-1, ship:-1, role:-1, name:-1, type:-1, outcome:-1, duration:-1,
+              rating:-1, notes:-1 };
+  var norm = headers.map(normHeader), key, i, j, cands;
+  for (key in COLUMN_GUESS){
+    if (!Object.prototype.hasOwnProperty.call(COLUMN_GUESS, key)) continue;
+    cands = COLUMN_GUESS[key];
+    for (j = 0; j < cands.length && map[key] < 0; j++){
+      for (i = 0; i < norm.length; i++){
+        if (norm[i] === cands[j] && !usedIndex(map, i)){ map[key] = i; break; }
+      }
+    }
+  }
+  return map;
+}
+/* Header names only help when there are headers, and they may be in another
+   language or absent entirely. Fall back to the data: the column that parses
+   as a date most often is the date column. */
+function inferDateColumn(map, rows){
+  if (map.date >= 0) return map;
+  var sample = rows.slice(0, 25), width = 0, i, j, hits, best = -1, bestHits = 0;
+  for (i = 0; i < sample.length; i++) width = Math.max(width, sample[i].length);
+  for (j = 0; j < width; j++){
+    if (usedIndex(map, j)) continue;
+    hits = 0;
+    for (i = 0; i < sample.length; i++){
+      if (parseDate(cellAt(sample[i], j), 'auto')) hits++;
+    }
+    if (hits > bestHits){ bestHits = hits; best = j; }
+  }
+  if (best >= 0 && bestHits >= Math.ceil(sample.length * 0.6)) map.date = best;
+  return map;
+}
+function usedIndex(map, i){
+  for (var k in map){
+    if (Object.prototype.hasOwnProperty.call(map, k) && map[k] === i) return true;
+  }
+  return false;
+}
+
+/* ---- dates ---------------------------------------------------------- */
+var MONTH_NAMES = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+var ambiguousDates = 0;
+function monthFromName(s){
+  var t = String(s).toLowerCase().slice(0, 3), i;
+  for (i = 0; i < 12; i++){ if (MONTH_NAMES[i] === t) return i + 1; }
+  return 0;
+}
+function isoOf(y, m, d){
+  if (!(y > 0) || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  var probe = new Date(Date.UTC(y, m - 1, d));
+  if (probe.getUTCMonth() !== m - 1 || probe.getUTCDate() !== d) return null;
+  return y + '-' + pad2(m) + '-' + pad2(d);
+}
+/* mode: 'auto' | 'dmy' | 'mdy' | 'ymd'. Returns YYYY-MM-DD or null.
+   Two-digit years are refused rather than guessed: in a setting where the
+   in-universe year is 2182, "82" is genuinely ambiguous. */
+function parseDate(raw, mode){
+  var s = clean(raw);
+  if (!s) return null;
+  s = s.split('T')[0];
+  s = s.replace(/\s+\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?$/i, '');
+  var m;
+  m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if (m) return isoOf(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{1,2})\s*[-\/. ]\s*([A-Za-z]{3,})\s*[-\/. ]\s*(\d{4})$/);
+  if (m) return isoOf(+m[3], monthFromName(m[2]), +m[1]);
+  m = s.match(/^([A-Za-z]{3,})\s*[-\/. ]\s*(\d{1,2}),?\s*(\d{4})$/);
+  if (m) return isoOf(+m[3], monthFromName(m[1]), +m[2]);
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if (m){
+    var a = +m[1], b = +m[2], y = +m[3];
+    if (mode === 'dmy') return isoOf(y, b, a);
+    if (mode === 'mdy') return isoOf(y, a, b);
+    if (mode === 'ymd') return null;
+    if (a > 12) return isoOf(y, b, a);
+    if (b > 12) return isoOf(y, a, b);
+    ambiguousDates++;
+    return isoOf(y, b, a);                 /* auto falls back to day-first */
+  }
+  return null;
+}
+/* Accepts 4, "4/5", or four star characters. Anything else is "not rated". */
+function parseRating(raw){
+  var s = clean(raw), m, stars = 0, i;
+  if (!s) return null;
+  m = s.match(/^([0-5])(?:\s*\/\s*5)?$/);
+  if (m) return (+m[1]) || null;
+  for (i = 0; i < s.length; i++){
+    if (s.charCodeAt(i) === 0x2605 || s.charAt(i) === '*') stars++;
+  }
+  return (stars >= 1 && stars <= 5) ? stars : null;
+}
+function parseDuration(raw){
+  var s = clean(raw).toLowerCase(), m;
+  if (!s) return null;
+  m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) return (+m[1]) * 60 + (+m[2]);
+  m = s.match(/^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?$/);
+  if (m && (m[1] || m[2])) return (+(m[1] || 0)) * 60 + (+(m[2] || 0));
+  m = s.match(/^(\d+(?:\.\d+)?)$/);
+  if (m) return Math.round(+m[1]);
+  return null;
+}
+
+/* =====================================================================
+   9. IMPORT TAB
+   ===================================================================== */
+var csvState = {
+  filename:'', rows:[], headers:[], hasHeader:true, delim:',',
+  map:null, dateMode:'auto', mergeMode:'append', skipDupes:true
+};
+
+function ingestText(text, filename){
+  if (!trim(text)){ toast('That file looks empty'); return; }
+  csvState.delim = detectDelimiter(text);
+  var rows = parseCsv(text, csvState.delim);
+  if (!rows.length){ toast('Nothing could be read from that file'); return; }
+  csvState.filename = filename || 'pasted text';
+  csvState.rows = rows;
+  csvState.hasHeader = looksLikeHeader(rows[0]);
+  csvState.headers = csvState.hasHeader ? rows[0].map(clean) : synthHeaders(rows[0].length);
+  csvState.map = computeMap();
+  renderImport();
+  toast('Read ' + rows.length + ' line' + (rows.length === 1 ? '' : 's'));
+}
+/* Names first, then the data for the date. Nothing is guessed from column
+   position: a file whose columns happen to sit in a different order would be
+   mislabelled without a word, and the labels end up on the report. */
+function computeMap(){
+  var map = guessColumns(csvState.headers);
+  return inferDateColumn(map, dataRows());
+}
+function synthHeaders(n){
+  var out = [], i;
+  for (i = 0; i < n; i++) out.push('Column ' + (i + 1));
+  return out;
+}
+/* A first row is treated as a header when none of its cells parse as a date
+   and at least one is non-numeric text. */
+function looksLikeHeader(row){
+  var text = 0, i, v;
+  for (i = 0; i < row.length; i++){
+    v = clean(row[i]);
+    if (!v) continue;
+    if (parseDate(v, 'auto')) return false;
+    if (!/^[\d.,:]+$/.test(v)) text++;
+  }
+  return text > 0;
+}
+function dataRows(){
+  return csvState.hasHeader ? csvState.rows.slice(1) : csvState.rows.slice(0);
+}
+function cellAt(row, idx){
+  return (idx >= 0 && idx < row.length) ? clean(row[idx]) : '';
+}
+
+/* Turns the parsed grid into missions, collecting a reason for every row it
+   cannot use. Nothing is discarded quietly. */
+function buildImport(){
+  ambiguousDates = 0;
+  var rows = dataRows(), out = [], skipped = [], i, r, iso, dur, rec;
+  var seen = {}, k, j;
+  if (csvState.skipDupes){
+    for (j = 0; j < state.missions.length; j++){
+      seen[dupeKey(state.missions[j])] = true;
+    }
+  }
+  for (i = 0; i < rows.length; i++){
+    r = rows[i];
+    var lineNo = i + (csvState.hasHeader ? 2 : 1);
+    if (r.length === 1 && !trim(r[0])) continue;
+    iso = parseDate(cellAt(r, csvState.map.date), csvState.dateMode);
+    if (!iso){
+      skipped.push({ line: lineNo,
+        reason: cellAt(r, csvState.map.date)
+          ? 'Unreadable date: ' + cellAt(r, csvState.map.date)
+          : 'No date in the mapped date column' });
+      continue;
+    }
+    dur = parseDuration(cellAt(r, csvState.map.duration));
+    rec = {
+      id: uid(),
+      date: iso,
+      ship: cellAt(r, csvState.map.ship),
+      role: cellAt(r, csvState.map.role),
+      name: cellAt(r, csvState.map.name),
+      type: cellAt(r, csvState.map.type),
+      outcome: cellAt(r, csvState.map.outcome),
+      duration: dur,
+      rating: parseRating(cellAt(r, csvState.map.rating)),
+      notes: cellAt(r, csvState.map.notes)
+    };
+    if (csvState.skipDupes){
+      k = dupeKey(rec);
+      if (seen[k]){ skipped.push({ line: lineNo, reason: 'Duplicate of a mission already logged' }); continue; }
+      seen[k] = true;
+    }
+    out.push(rec);
+  }
+  return { missions: out, skipped: skipped, ambiguous: ambiguousDates };
+}
+function dupeKey(m){
+  return [m.date, m.ship.toLowerCase(), m.role.toLowerCase(), m.name.toLowerCase()].join('|');
+}
+
+function renderImport(){
+  var loaded = csvState.rows.length > 0;
+  byId('impHeader').setAttribute('aria-checked', csvState.hasHeader ? 'true' : 'false');
+  byId('impDupes').setAttribute('aria-checked', csvState.skipDupes ? 'true' : 'false');
+  byId('impDateMode').value = csvState.dateMode;
+  byId('impMerge').value = csvState.mergeMode;
+  byId('impSourceState').innerHTML = loaded
+    ? '<div class="card"><div class="card-head">' +
+        '<span class="badge">' + esc(csvState.filename.slice(0, 28)) + '</span>' +
+        '<span class="grow"></span>' +
+        '<button type="button" class="del" id="impClear" aria-label="Discard this file">✕</button>' +
+      '</div>' +
+      '<div class="kv"><span class="k">Lines</span><span class="v">' + csvState.rows.length + '</span></div>' +
+      '<div class="kv"><span class="k">Columns</span><span class="v">' + csvState.headers.length + '</span></div>' +
+      '<div class="kv"><span class="k">Separator</span><span class="v">' +
+        esc(csvState.delim === '\t' ? 'Tab' : csvState.delim) + '</span></div>' +
+      '</div>'
+    : '<p class="empty">No file loaded yet.</p>';
+
+  byId('impConfig').className = loaded ? '' : 'hidden';
+  if (!loaded){
+    byId('impPreview').innerHTML = '';
+    byId('impGo').disabled = true;
+    byId('impGo').textContent = 'Import missions';
+    return;
+  }
+  if (byId('impClear')){
+    on(byId('impClear'), 'click', function(ev){
+      confirmSheet('Discard file',
+        'Drop ' + csvState.filename + ' without importing it? Already imported missions are untouched.',
+        'Discard', function(){
+          csvState = { filename:'', rows:[], headers:[], hasHeader:true, delim:',',
+                       map:null, dateMode: csvState.dateMode, mergeMode: csvState.mergeMode,
+                       skipDupes: csvState.skipDupes };
+          renderImport(); toast('File discarded');
+        }, ev.currentTarget);
+    });
+  }
+  renderMapping();
+  /* Open the mapping unprompted when there is anything to confirm. */
+  if (csvState.map.date < 0 || !csvState.hasHeader){
+    byId('impColsTog').setAttribute('aria-expanded', 'true');
+    byId('impColsBody').className = 'coll-body open';
+  }
+  renderPreview();
+}
+
+function renderMapping(){
+  var fields = [
+    ['date','Date', true], ['ship','Ship', false], ['role','Role', false],
+    ['name','Mission name', false], ['type','Mission type', false],
+    ['outcome','Outcome', false], ['duration','Duration (mins)', false],
+    ['rating','Rating (0-5)', false], ['notes','Notes', false]
+  ];
+  var html = '', i, f;
+  for (i = 0; i < fields.length; i += 2){
+    html += '<div class="row2">';
+    html += mapField(fields[i]);
+    if (fields[i + 1]) html += mapField(fields[i + 1]);
+    else html += '<div></div>';
+    html += '</div>';
+  }
+  byId('impMapping').innerHTML = html;
+  fields.forEach(function(f){
+    var sel = byId('map_' + f[0]);
+    on(sel, 'change', function(){
+      csvState.map[f[0]] = parseInt(sel.value, 10);
+      renderPreview();
+    });
+  });
+}
+function mapField(f){
+  var key = f[0], label = f[1], required = f[2];
+  var cur = csvState.map[key];
+  var html = '<div class="field"><label for="map_' + key + '">' + esc(label) +
+             (required ? ' *' : '') + '</label><select id="map_' + key + '">';
+  html += '<option value="-1"' + (cur === -1 ? ' selected' : '') + '>— Not used —</option>';
+  for (var i = 0; i < csvState.headers.length; i++){
+    html += '<option value="' + i + '"' + (cur === i ? ' selected' : '') + '>' +
+            esc(csvState.headers[i] || ('Column ' + (i + 1))) + '</option>';
+  }
+  return html + '</select></div>';
+}
+
+function renderPreview(){
+  /* Reading options are wired before any file exists, and their handlers fire
+     once on setup, so there may be nothing to preview yet. */
+  if (!csvState.map || !csvState.rows.length) return;
+  var res = buildImport();
+  var n = res.missions.length;
+  byId('impGo').disabled = n === 0;
+  byId('impGo').textContent = n
+    ? 'Import ' + n + ' mission' + (n === 1 ? '' : 's')
+    : 'Nothing to import';
+
+  var html = '';
+  html += '<div class="tiles">' +
+    tile('Rows read', String(dataRows().length)) +
+    tile('Ready to import', String(n), 'accent') +
+    tile('Will be skipped', String(res.skipped.length)) +
+    tile('Already logged', String(state.missions.length)) +
+    '</div>';
+
+  if (res.ambiguous > 0){
+    html += '<div class="banner-note">' + res.ambiguous + ' date' +
+      (res.ambiguous === 1 ? ' was' : 's were') +
+      ' ambiguous (day and month both 12 or under) and read as day-first. ' +
+      'Set the date format below if that is wrong.</div>';
+  }
+  if (!csvState.hasHeader){
+    html += '<div class="banner-note">This file has no header row, so only the date ' +
+      'column could be worked out from the data. Open Columns above and say which ' +
+      'column is which.</div>';
+  }
+  if (csvState.map.role < 0){
+    html += '<div class="banner-note">No role column in this file, which is fine. ' +
+      'Add the ones you remember per mission on the Log tab.</div>';
+  }
+  if (csvState.mergeMode === 'replace' && state.missions.length){
+    html += '<div class="banner"><b>Replace will delete data</b>' +
+      'Importing in replace mode discards the ' + state.missions.length +
+      ' mission' + (state.missions.length === 1 ? '' : 's') +
+      ' already logged. That cannot be undone from inside this tool.</div>';
+  }
+  if (n){
+    var sample = res.missions.slice(0, 3), i, m;
+    html += '<h2 class="sec">First rows</h2>';
+    for (i = 0; i < sample.length; i++){
+      m = sample[i];
+      html += '<div class="card"><div class="card-head">' +
+        '<span class="badge">' + esc(m.date) + '</span><span class="grow"></span></div>' +
+        kvRow('Ship', m.ship) + kvRow('Role', m.role) + kvRow('Mission', m.name) +
+        kvRow('Type', m.type) + '</div>';
+    }
+  }
+  if (res.skipped.length){
+    html += '<h2 class="sec">Skipped rows</h2>' +
+      '<p class="sub">These lines will not be imported.</p><div class="skiplist">';
+    for (var j = 0; j < res.skipped.length && j < 60; j++){
+      html += '<div class="kv"><span class="k">Line ' + res.skipped[j].line +
+              '</span><span class="v">' + esc(res.skipped[j].reason) + '</span></div>';
+    }
+    if (res.skipped.length > 60){
+      html += '<p class="empty">…and ' + (res.skipped.length - 60) + ' more.</p>';
+    }
+    html += '</div>';
+  }
+  byId('impPreview').innerHTML = html;
+}
+function tile(k, v, cls){
+  return '<div class="tile"><div class="tile-k">' + esc(k) + '</div>' +
+         '<div class="tile-v ' + (cls || '') + '">' + esc(v) + '</div></div>';
+}
+function kvRow(k, v){
+  return '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v">' +
+         (v ? esc(v) : '<i style="color:var(--muted)">Not recorded</i>') + '</span></div>';
+}
+
+function commitImport(){
+  var res = buildImport();
+  if (!res.missions.length){ toast('Nothing to import'); return; }
+  if (csvState.mergeMode === 'replace') state.missions = res.missions;
+  else state.missions = state.missions.concat(res.missions);
+  state.missions.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  state.imp = {
+    filename: csvState.filename,
+    importedAt: compiledStamp() + ' ' + nowLocalTime(),
+    rowsRead: dataRows().length,
+    rowsImported: res.missions.length,
+    skipped: res.skipped.slice(0, 200)
+  };
+  save();
+  applyDerivedFirstDeployment();
+  renderAll();
+  setTab('analytics');
+  toast('Imported ' + res.missions.length + ' mission' + (res.missions.length === 1 ? '' : 's'));
+}
+
+function wireImport(){
+  on(byId('impFile'), 'change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){ ingestText(String(fr.result), f.name); };
+    fr.onerror = function(){ toast('Could not read that file'); };
+    fr.readAsText(f);
+    e.target.value = '';
+  });
+  on(byId('impPasteGo'), 'click', function(){
+    ingestText(byId('impPaste').value, 'pasted text');
+  });
+  on(byId('impDateMode'), 'change', function(){
+    csvState.dateMode = byId('impDateMode').value;
+    renderPreview();
+  });
+  on(byId('impMerge'), 'change', function(){
+    csvState.mergeMode = byId('impMerge').value;
+    renderPreview();
+  });
+  on(byId('impHeader'), 'click', function(){
+    csvState.hasHeader = !csvState.hasHeader;
+    byId('impHeader').setAttribute('aria-checked', csvState.hasHeader ? 'true' : 'false');
+    csvState.headers = csvState.hasHeader
+      ? (csvState.rows[0] || []).map(clean)
+      : synthHeaders((csvState.rows[0] || []).length);
+    csvState.map = computeMap();
+    renderImport();
+  });
+  on(byId('impDupes'), 'click', function(){
+    csvState.skipDupes = !csvState.skipDupes;
+    byId('impDupes').setAttribute('aria-checked', csvState.skipDupes ? 'true' : 'false');
+    renderPreview();
+  });
+  on(byId('impGo'), 'click', function(ev){
+    if (csvState.mergeMode === 'replace' && state.missions.length){
+      confirmSheet('Replace the log',
+        'This deletes the ' + state.missions.length + ' mission' +
+        (state.missions.length === 1 ? '' : 's') + ' already logged and imports in their place.',
+        'Replace', commitImport, ev.currentTarget);
+    } else commitImport();
+  });
+}
+
+/* =====================================================================
+   10. AGGREGATION
+   ===================================================================== */
+var UNSPEC = 'Unspecified';
+function labelOf(v){ return v ? v : UNSPEC; }
+
+function filteredMissions(){
+  var f = state.ui.filters;
+  return state.missions.filter(function(m){
+    if (f.ship && labelOf(m.ship) !== f.ship) return false;
+    if (f.role && labelOf(m.role) !== f.role) return false;
+    if (f.type && labelOf(m.type) !== f.type) return false;
+    if (f.year && m.date.slice(0, 4) !== f.year) return false;
+    return true;
+  });
+}
+function countBy(list, key){
+  var map = {}, order = [], i, k;
+  for (i = 0; i < list.length; i++){
+    k = labelOf(list[i][key]);
+    if (!Object.prototype.hasOwnProperty.call(map, k)){ map[k] = 0; order.push(k); }
+    map[k]++;
+  }
+  var out = order.map(function(k){ return { key:k, n:map[k] }; });
+  out.sort(function(a, b){ return b.n - a.n || (a.key < b.key ? -1 : 1); });
+  return out;
+}
+function distinctValues(key){
+  var seen = {}, out = [], i, k;
+  for (i = 0; i < state.missions.length; i++){
+    k = labelOf(state.missions[i][key]);
+    if (!seen[k]){ seen[k] = 1; out.push(k); }
+  }
+  out.sort();
+  return out;
+}
+function distinctYears(){
+  var seen = {}, out = [], i, y;
+  for (i = 0; i < state.missions.length; i++){
+    y = state.missions[i].date.slice(0, 4);
+    if (!seen[y]){ seen[y] = 1; out.push(y); }
+  }
+  out.sort();
+  return out;
+}
+
+function aggregate(list){
+  var a = {
+    total: list.length, months: [], counts: [], cumulative: [],
+    byShip: countBy(list, 'ship'), byRole: countBy(list, 'role'), namedRoles: [],
+    byType: countBy(list, 'type'), byOutcome: countBy(list, 'outcome'),
+    firstDate:'', lastDate:'', busiest:null, activeMonths:0,
+    avgPerActiveMonth:0, avgPerMonth:0, totalMinutes:0, durationSamples:0,
+    ratingCounts:[0,0,0,0,0], ratedCount:0, ratingTotal:0, avgRating:0
+  };
+  if (!list.length) return a;
+  var dates = list.map(function(m){ return m.date; }).sort();
+  a.firstDate = dates[0];
+  a.lastDate = dates[dates.length - 1];
+
+  var byMonth = {}, i, k;
+  for (i = 0; i < list.length; i++){
+    k = monthKeyOf(list[i].date);
+    byMonth[k] = (byMonth[k] || 0) + 1;
+    if (typeof list[i].duration === 'number' && list[i].duration > 0){
+      a.totalMinutes += list[i].duration;
+      a.durationSamples++;
+    }
+    if (list[i].rating >= 1 && list[i].rating <= 5){
+      a.ratingCounts[list[i].rating - 1]++;
+      a.ratedCount++;
+      a.ratingTotal += list[i].rating;
+    }
+  }
+  if (a.ratedCount) a.avgRating = a.ratingTotal / a.ratedCount;
+  /* Headline role figures ignore the missions with no role on them; the role
+     breakdown still shows them, so the gap stays visible. */
+  a.namedRoles = a.byRole.filter(function(r){ return r.key !== UNSPEC; });
+  a.months = monthSpan(monthKeyOf(a.firstDate), monthKeyOf(a.lastDate));
+  var run = 0;
+  for (i = 0; i < a.months.length; i++){
+    var n = byMonth[a.months[i]] || 0;
+    a.counts.push(n);
+    run += n;
+    a.cumulative.push(run);
+    if (n > 0) a.activeMonths++;
+    if (!a.busiest || n > a.busiest.n) a.busiest = { key:a.months[i], n:n };
+  }
+  a.avgPerMonth = a.months.length ? (a.total / a.months.length) : 0;
+  a.avgPerActiveMonth = a.activeMonths ? (a.total / a.activeMonths) : 0;
+  return a;
+}
+function fmt1(n){ return (Math.round(n * 10) / 10).toFixed(1); }
+function hoursMins(mins){
+  var h = Math.floor(mins / 60), m = mins % 60;
+  return h ? (h + 'h ' + pad2(m) + 'm') : (m + 'm');
+}
+
+/* =====================================================================
+   11. ON-SCREEN CHARTS  (inline SVG, drawn in the PDF chart language:
+        orange series, hairline gridlines, first/last x labels, pinned axis)
+   ===================================================================== */
+var SVG_W = 360;
+function svgOpen(h, label){
+  return '<svg viewBox="0 0 ' + SVG_W + ' ' + h + '" role="img" aria-label="' +
+         esc(label) + '" preserveAspectRatio="xMidYMid meet">';
+}
+function gridAndAxis(x0, y0, w, h, yMax, ticks){
+  var s = '', i, y, val;
+  ticks = ticks || niceTicks(yMax);
+  for (i = 0; i <= ticks; i++){
+    val = yMax * i / ticks;
+    y = y0 + h - (h * i / ticks);
+    s += '<line x1="' + x0 + '" y1="' + y.toFixed(1) + '" x2="' + (x0 + w) +
+         '" y2="' + y.toFixed(1) + '" stroke="#2a3a66" stroke-width="1"/>';
+    s += '<text x="' + (x0 - 5) + '" y="' + (y + 3.2).toFixed(1) +
+         '" text-anchor="end" font-family="Orbitron, sans-serif" font-size="8.5" ' +
+         'fill="#8c98bf">' + Math.round(val) + '</text>';
+  }
+  return s;
+}
+function xEndLabels(x0, w, yBase, first, last, single){
+  var s = '<text x="' + x0 + '" y="' + yBase + '" text-anchor="start" ' +
+          'font-family="Orbitron, sans-serif" font-size="8.5" fill="#8c98bf">' +
+          esc(first) + '</text>';
+  if (!single){
+    s += '<text x="' + (x0 + w) + '" y="' + yBase + '" text-anchor="end" ' +
+         'font-family="Orbitron, sans-serif" font-size="8.5" fill="#8c98bf">' +
+         esc(last) + '</text>';
+  }
+  return s;
+}
+/* Vertical bars, one per month, spaced by index. */
+function svgBars(labels, values, aria){
+  var H = 168, x0 = 30, y0 = 8, w = SVG_W - x0 - 8, h = H - y0 - 26;
+  var maxV = 0, i;
+  for (i = 0; i < values.length; i++) maxV = Math.max(maxV, values[i]);
+  var yMax = pinnedMax(maxV, 10, 5);
+  var s = svgOpen(H, aria);
+  s += gridAndAxis(x0, y0, w, h, yMax, niceTicks(yMax));
+  var n = values.length || 1;
+  var slot = w / n, bw = Math.max(2, Math.min(26, slot * 0.62));
+  for (i = 0; i < values.length; i++){
+    var bh = h * (values[i] / yMax);
+    var cx = x0 + slot * i + slot / 2;
+    if (bh > 0){
+      s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + (y0 + h - bh).toFixed(1) +
+           '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) +
+           '" rx="2" fill="#DD7A2B"/>';
+    }
+    if (values.length <= 12 && values[i] > 0){
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (y0 + h - bh - 3).toFixed(1) +
+           '" text-anchor="middle" font-family="Orbitron, sans-serif" font-size="8" ' +
+           'fill="#e8ecf7">' + values[i] + '</text>';
+    }
+  }
+  s += '<line x1="' + x0 + '" y1="' + (y0 + h) + '" x2="' + (x0 + w) + '" y2="' + (y0 + h) +
+       '" stroke="#2a3a66" stroke-width="1"/>';
+  s += xEndLabels(x0, w, H - 8, labels[0] || '', labels[labels.length - 1] || '',
+                  labels.length < 2);
+  return s + '</svg>';
+}
+/* Cumulative line, points spaced by index. */
+function svgLine(labels, values, aria){
+  var H = 150, x0 = 30, y0 = 8, w = SVG_W - x0 - 8, h = H - y0 - 26;
+  var maxV = 0, i;
+  for (i = 0; i < values.length; i++) maxV = Math.max(maxV, values[i]);
+  var yMax = pinnedMax(maxV, 25, 25);
+  var s = svgOpen(H, aria);
+  s += gridAndAxis(x0, y0, w, h, yMax, niceTicks(yMax));
+  var n = values.length;
+  var step = n > 1 ? w / (n - 1) : 0;
+  var pts = [];
+  for (i = 0; i < n; i++){
+    pts.push((x0 + step * i).toFixed(1) + ',' + (y0 + h - h * (values[i] / yMax)).toFixed(1));
+  }
+  if (n === 1){
+    s += '<circle cx="' + x0 + '" cy="' + (y0 + h - h * (values[0] / yMax)).toFixed(1) +
+         '" r="3" fill="#DD7A2B"/>';
+  } else {
+    s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#DD7A2B" ' +
+         'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    for (i = 0; i < n; i += Math.max(1, Math.ceil(n / 14))){
+      s += '<circle cx="' + (x0 + step * i).toFixed(1) + '" cy="' +
+           (y0 + h - h * (values[i] / yMax)).toFixed(1) + '" r="2.4" fill="#DD7A2B"/>';
+    }
+  }
+  s += '<line x1="' + x0 + '" y1="' + (y0 + h) + '" x2="' + (x0 + w) + '" y2="' + (y0 + h) +
+       '" stroke="#2a3a66" stroke-width="1"/>';
+  s += xEndLabels(x0, w, H - 8, labels[0] || '', labels[labels.length - 1] || '', n < 2);
+  return s + '</svg>';
+}
+/* No embedded font carries U+2605, and jsPDF would drop it without a word, so
+   stars are drawn as shapes in both places: SVG here, vectors in the PDF. */
+var STAR_PATH = 'M12 2.4l2.9 6.2 6.8.85-5 4.65 1.3 6.7L12 17.5l-6 3.3 1.3-6.7-5-4.65 6.8-.85z';
+function starSvg(on){
+  return '<svg class="star-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path d="' + STAR_PATH + '" fill="' + (on ? '#DD7A2B' : 'none') + '" stroke="' +
+    (on ? '#DD7A2B' : '#3a4a78') + '" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+}
+function starsRead(value){
+  var out = '<span class="stars stars-read" role="img" aria-label="' +
+            (value ? value + ' out of 5' : 'Not rated') + '">', i;
+  for (i = 1; i <= 5; i++) out += starSvg(i <= value);
+  return out + '</span>';
+}
+function starsEdit(value, attr){
+  var out = '<span class="stars" role="radiogroup" ' + attr + '>', i;
+  for (i = 1; i <= 5; i++){
+    out += '<button type="button" class="star-btn" role="radio" data-star="' + i + '" ' +
+           'aria-checked="' + (i === value ? 'true' : 'false') + '" ' +
+           'aria-label="' + i + ' out of 5">' + starSvg(i <= value) + '</button>';
+  }
+  if (value) out += '<button type="button" class="star-clear" data-star="0">Clear</button>';
+  return out + '</span>';
+}
+/* Rebuilds one rating row in place, so tapping a star on a long log does not
+   re-render the list and lose the scroll position. */
+function wireStars(box, get, set){
+  qsa('[data-star]', box).forEach(function(btn){
+    on(btn, 'click', function(){
+      var v = parseInt(btn.getAttribute('data-star'), 10);
+      set(v === get() ? null : (v || null));
+      box.innerHTML = starsEdit(get(), box.getAttribute('data-attr') || '');
+      wireStars(box, get, set);
+    });
+  });
+}
+function meters(rows, total){
+  if (!rows.length) return '<p class="empty">None recorded.</p>';
+  var peak = 0, q;
+  for (q = 0; q < rows.length; q++) peak = Math.max(peak, rows[q].n);
+  var s = '', i, pct;
+  var top = peak || 1;
+  for (i = 0; i < rows.length; i++){
+    pct = Math.round(rows[i].n / top * 100);
+    s += '<div class="meter">' +
+      '<span class="meter-label" title="' + esc(rows[i].key) + '">' + esc(rows[i].key) + '</span>' +
+      '<span class="meter-track"><span class="meter-fill" style="width:' + pct + '%"></span></span>' +
+      '<span class="meter-val">' + rows[i].n + ' (' +
+        Math.round(rows[i].n / (total || 1) * 100) + '%)</span>' +
+      '</div>';
+  }
+  return s;
+}
+
+/* =====================================================================
+   12. ANALYTICS TAB
+   ===================================================================== */
+function renderFilters(){
+  var f = state.ui.filters;
+  fillSelect(byId('flShip'), distinctValues('ship'), f.ship, { placeholder:'All ships' });
+  fillSelect(byId('flRole'), distinctValues('role'), f.role, { placeholder:'All roles' });
+  fillSelect(byId('flType'), distinctValues('type'), f.type, { placeholder:'All types' });
+  fillSelect(byId('flYear'), distinctYears(), f.year, { placeholder:'All years' });
+}
+function renderAnalytics(){
+  renderFilters();
+  var box = byId('anBody');
+  if (!state.missions.length){
+    box.innerHTML =
+      '<p class="empty">No missions logged yet. Import a CSV on the Import tab, ' +
+      'or add one by hand on the Log tab.</p>';
+    byId('anExport').disabled = true;
+    byId('anFilters').className = 'hidden';
+    return;
+  }
+  byId('anFilters').className = '';
+  var list = filteredMissions();
+  byId('anExport').disabled = false;
+
+  if (!list.length){
+    box.innerHTML = '<p class="empty">No missions match these filters.</p>';
+    return;
+  }
+  var a = aggregate(list);
+  var html = '';
+
+  html += '<h2 class="sec">At a glance</h2>';
+  html += '<p class="sub">' + esc(monthLabel(monthKeyOf(a.firstDate))) + ' to ' +
+          esc(monthLabel(monthKeyOf(a.lastDate))) + ' — ' + a.months.length +
+          ' month' + (a.months.length === 1 ? '' : 's') + ' spanned</p>';
+  html += '<div class="tiles">' +
+    tile('Missions', String(a.total), 'accent') +
+    tile('Ships served', String(a.byShip.length)) +
+    tile('Active months', a.activeMonths + ' / ' + a.months.length) +
+    tile('Avg per active month', fmt1(a.avgPerActiveMonth)) +
+    tileSm('Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—') +
+    tileSm('Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—') +
+    '</div>';
+  if (a.ratedCount){
+    html += '<div class="tiles">' +
+      tile('Average rating', fmt1(a.avgRating) + ' / 5', 'accent') +
+      tile('Missions rated', a.ratedCount + ' / ' + a.total) +
+      '</div>';
+  }
+  if (a.durationSamples){
+    html += '<div class="tiles">' +
+      tileSm('Time on station', hoursMins(a.totalMinutes)) +
+      tileSm('Avg mission length', hoursMins(Math.round(a.totalMinutes / a.durationSamples))) +
+      '</div>';
+    if (a.durationSamples < a.total){
+      html += '<p class="sub">Duration recorded for ' + a.durationSamples + ' of ' +
+              a.total + ' missions.</p>';
+    }
+  }
+
+  html += '<h2 class="sec">Missions per month</h2>';
+  html += '<div class="card"><div class="chart-wrap">' +
+    svgBars(a.months.map(monthLabel), a.counts,
+            'Bar chart of missions per month, ' + a.total + ' missions across ' +
+            a.months.length + ' months') +
+    '</div><p class="chart-cap">Axis pinned to ' +
+    pinnedMax(Math.max.apply(null, a.counts.concat([0])), 10, 5) +
+    ' so reports stay comparable</p></div>';
+
+  html += '<h2 class="sec">Cumulative record</h2>';
+  html += '<div class="card"><div class="chart-wrap">' +
+    svgLine(a.months.map(monthLabel), a.cumulative,
+            'Line chart of cumulative missions, rising to ' + a.total) +
+    '</div><p class="chart-cap">Running total, one point per month</p></div>';
+
+  html += '<h2 class="sec">By ship</h2>';
+  html += '<div class="card">' + meters(a.byShip, a.total) + '</div>';
+
+  html += '<h2 class="sec">By role</h2>';
+  html += '<p class="sub">The station you played, counted across every logged mission.</p>';
+  if (a.byRole.length === 1 && a.byRole[0].key === UNSPEC){
+    html += '<p class="empty">No role recorded on any mission. Map a role column when ' +
+            'you import, set a role for rows that have none, or add one per mission ' +
+            'on the Log tab.</p>';
+  } else {
+    html += '<div class="card">' + meters(a.byRole, a.total) + '</div>';
+  }
+
+  html += '<h2 class="sec">By mission type</h2>';
+  html += '<div class="card">' + meters(a.byType, a.total) + '</div>';
+
+  html += '<h2 class="sec">Ratings</h2>';
+  if (!a.ratedCount){
+    html += '<p class="empty">No missions rated yet. Tap the stars on any mission ' +
+            'on the Log tab.</p>';
+  } else {
+    var rrows = [], ri;
+    for (ri = 5; ri >= 1; ri--){
+      rrows.push({ key: ri + (ri === 1 ? ' star' : ' stars'), n: a.ratingCounts[ri - 1] });
+    }
+    html += '<p class="sub">Average ' + fmt1(a.avgRating) + ' out of 5 across ' +
+            a.ratedCount + ' rated mission' + (a.ratedCount === 1 ? '' : 's') + '.</p>';
+    html += '<div class="card">' + meters(rrows, a.ratedCount) + '</div>';
+  }
+
+  if (a.byOutcome.length && !(a.byOutcome.length === 1 && a.byOutcome[0].key === UNSPEC)){
+    html += '<h2 class="sec">By outcome</h2>';
+    html += '<div class="card">' + meters(a.byOutcome, a.total) + '</div>';
+  }
+  box.innerHTML = html;
+}
+function tileSm(k, v){
+  return '<div class="tile"><div class="tile-k">' + esc(k) + '</div>' +
+         '<div class="tile-v sm">' + esc(v) + '</div></div>';
+}
+function wireAnalytics(){
+  [['flShip','ship'], ['flRole','role'], ['flType','type'], ['flYear','year']].forEach(function(p){
+    on(byId(p[0]), 'change', function(){
+      state.ui.filters[p[1]] = byId(p[0]).value;
+      save(); renderAnalytics();
+    });
+  });
+  on(byId('flReset'), 'click', function(){
+    state.ui.filters = { ship:'', role:'', type:'', year:'' };
+    save(); renderAnalytics(); toast('Filters cleared');
+  });
+  on(byId('anExport'), 'click', function(){ exportPdf(); });
+}
+
+/* =====================================================================
+   13. LOG TAB
+   ===================================================================== */
+function renderLog(){
+  var box = byId('logBody');
+  byId('logCount').textContent = state.missions.length
+    ? state.missions.length + ' mission' + (state.missions.length === 1 ? '' : 's') + ' logged'
+    : 'Nothing logged yet';
+  if (!state.missions.length){
+    box.innerHTML = '<p class="empty">None recorded.</p>';
+    return;
+  }
+  var list = state.missions.slice(0).sort(function(a, b){
+    return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
+  });
+  var html = '', i, m;
+  for (i = 0; i < list.length; i++){
+    m = list[i];
+    html += '<div class="card">' +
+      '<div class="card-head">' +
+        '<span class="badge">' + esc(m.date) + '</span>' +
+        '<span class="grow"></span>' +
+        '<button type="button" class="del" data-del="' + esc(m.id) + '" ' +
+          'aria-label="Delete mission on ' + esc(m.date) + '">✕</button>' +
+      '</div>' +
+      kvRow('Ship', m.ship) + kvRow('Role', m.role) + kvRow('Mission', m.name) +
+      kvRow('Type', m.type) +
+      (m.outcome ? kvRow('Outcome', m.outcome) : '') +
+      (m.duration ? kvRow('Duration', hoursMins(m.duration)) : '') +
+      (m.notes ? kvRow('Notes', m.notes) : '') +
+      '<div class="rate-row"><span class="k">Rating</span>' +
+        '<span class="stars-host" data-mission="' + esc(m.id) + '"></span></div>' +
+      '<button type="button" class="btn-quiet" data-edit="' + esc(m.id) + '">Edit</button>' +
+      '</div>';
+  }
+  box.innerHTML = html;
+  qsa('.stars-host', box).forEach(function(host){
+    var id = host.getAttribute('data-mission');
+    host.setAttribute('data-attr', 'aria-label="Rating"');
+    host.innerHTML = starsEdit((missionById(id) || {}).rating, 'aria-label="Rating"');
+    wireStars(host,
+      function(){ var m = missionById(id); return m ? m.rating : null; },
+      function(v){
+        var m = missionById(id);
+        if (!m) return;
+        m.rating = v;
+        save();
+        renderHeaderMeta();
+      });
+  });
+  qsa('[data-del]', box).forEach(function(b){
+    on(b, 'click', function(ev){
+      var m = missionById(b.getAttribute('data-del'));
+      if (!m) return;
+      confirmSheet('Delete mission',
+        'Remove the ' + m.date + ' entry' + (m.name ? ' (' + m.name + ')' : '') + '?',
+        'Delete', function(){
+          state.missions = state.missions.filter(function(x){ return x.id !== m.id; });
+          save(); renderAll(); toast('Mission deleted');
+        }, ev.currentTarget);
+    });
+  });
+  qsa('[data-edit]', box).forEach(function(b){
+    on(b, 'click', function(ev){ openMissionSheet(b.getAttribute('data-edit'), ev.currentTarget); });
+  });
+}
+function missionById(id){
+  for (var i = 0; i < state.missions.length; i++){
+    if (state.missions[i].id === id) return state.missions[i];
+  }
+  return null;
+}
+function openMissionSheet(id, trigger){
+  var m = id ? missionById(id) : null;
+  var isNew = !m;
+  if (!m){
+    m = { id:uid(), date:earliestMissionDate() || todayInUniverseISO(), ship:'', role:'',
+          name:'', type:'', outcome:'', duration:null, rating:null, notes:'' };
+  }
+  var body =
+    '<div class="field"><label for="msDate">Date</label>' +
+      '<input type="date" id="msDate" value="' + esc(m.date) + '"></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label for="msShip">Ship</label><select id="msShip"></select></div>' +
+      '<div class="field"><label for="msRole">Role</label><select id="msRole"></select></div>' +
+    '</div>' +
+    '<div class="field hidden"><label for="msShipOther">Ship name</label>' +
+      '<input type="text" id="msShipOther" placeholder="Type the ship name"></div>' +
+    '<div class="field hidden"><label for="msRoleOther">Role</label>' +
+      '<input type="text" id="msRoleOther" placeholder="Type the role"></div>' +
+    '<div class="field"><label for="msName">Mission name</label>' +
+      '<input type="text" id="msName" value="' + esc(m.name) + '" placeholder="Operation Silent Harbour"></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label for="msType">Mission type</label><select id="msType"></select></div>' +
+      '<div class="field"><label for="msDuration">Duration (mins)</label>' +
+        '<input type="number" id="msDuration" min="0" step="5" value="' +
+        (m.duration ? esc(String(m.duration)) : '') + '"></div>' +
+    '</div>' +
+    '<div class="field"><label id="msRatingLb">Rating (optional)</label>' +
+      '<span class="stars-host" id="msStars"></span></div>' +
+    '<div class="field"><label for="msOutcome">Outcome</label>' +
+      '<input type="text" id="msOutcome" value="' + esc(m.outcome) + '" placeholder="Objective met"></div>' +
+    '<div class="field"><label for="msNotes">Notes</label>' +
+      '<textarea id="msNotes" placeholder="Anything worth remembering">' + esc(m.notes) + '</textarea></div>' +
+    '<div class="btn-row"><button type="button" class="btn-quiet" id="msCancel">Cancel</button></div>' +
+    '<button type="button" class="btn-primary" id="msSave">' +
+      (isNew ? 'Add mission' : 'Save changes') + '</button>';
+
+  openSheet(isNew ? 'Add mission' : 'Edit mission', body, trigger);
+  writeOther('msShip', 'msShipOther', m.ship, SHIPS, { other:true });
+  writeOther('msRole', 'msRoleOther', m.role, ROLE_GROUPS, { other:true });
+  fillSelect(byId('msType'), MISSION_TYPES, m.type, {});
+  bindOther('msShip', 'msShipOther');
+  bindOther('msRole', 'msRoleOther');
+  var sheetRating = m.rating;
+  var host = byId('msStars');
+  host.setAttribute('data-attr', 'aria-labelledby="msRatingLb"');
+  host.innerHTML = starsEdit(sheetRating, 'aria-labelledby="msRatingLb"');
+  wireStars(host, function(){ return sheetRating; }, function(v){ sheetRating = v; });
+
+  on(byId('msCancel'), 'click', closeSheet);
+  on(byId('msSave'), 'click', function(){
+    var date = byId('msDate').value;
+    if (!date){ toast('A date is required'); byId('msDate').focus(); return; }
+    var dur = parseInt(byId('msDuration').value, 10);
+    var rec = {
+      id: m.id, date: date,
+      ship: readOther('msShip', 'msShipOther'),
+      role: readOther('msRole', 'msRoleOther'),
+      name: clean(byId('msName').value),
+      type: byId('msType').value,
+      outcome: clean(byId('msOutcome').value),
+      duration: (isFinite(dur) && dur > 0) ? dur : null,
+      rating: sheetRating,
+      notes: clean(byId('msNotes').value)
+    };
+    if (isNew) state.missions.push(rec);
+    else {
+      state.missions = state.missions.map(function(x){ return x.id === rec.id ? rec : x; });
+    }
+    state.missions.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    save(); closeSheet(); renderAll();
+    toast(isNew ? 'Mission added' : 'Mission updated');
+  });
+}
+function wireLog(){
+  on(byId('logAdd'), 'click', function(ev){ openMissionSheet(null, ev.currentTarget); });
+}
+
+/* =====================================================================
+   14. MORE TAB  (backups, templates, licences, the fan-made disclaimer)
+   ===================================================================== */
+var CSV_TEMPLATE =
+  'Date,Ship,Category,Mission,Role,Rating\n' +
+  '2026-08-20,UCS Takanami,Exploration,OPERATION SARGASSO,Helm,5\n' +
+  '2026-08-06,UCS Havock,Frontline,CELL 06-05,,4\n' +
+  '2026-08-01,UCS Havock,Diplomacy,OPERATION REDENTOR,Comms,\n';
+
+function downloadBlob(text, filename, mime){
+  try {
+    var blob = new Blob([text], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    return true;
+  } catch (e){ return false; }
+}
+function renderStorageBanner(){
+  var html = storageOk ? '' :
+    '<div class="banner"><b>Nothing is being saved</b>' +
+    'This browser is blocking local storage, so closing the tab loses every mission ' +
+    'and every setup field. Export a PDF or a JSON backup before you leave.</div>';
+  byId('setupBanner').innerHTML = html;
+  byId('moreBanner').innerHTML = html;
+}
+function wireMore(){
+  on(byId('mrTemplate'), 'click', function(){
+    if (downloadBlob(CSV_TEMPLATE, 'ucn-deployments-template.csv', 'text/csv')) {
+      toast('Template downloaded');
+    } else toast('Download blocked by this browser');
+  });
+  on(byId('mrBackup'), 'click', function(){
+    var payload = JSON.stringify({ v:1, tool:'ucn-mission-analytics',
+      setup:state.setup, missions:state.missions, imp:state.imp }, null, 2);
+    if (downloadBlob(payload, 'ucn-mission-analytics-backup.json', 'application/json')){
+      toast('Backup downloaded');
+    } else toast('Download blocked by this browser');
+  });
+  on(byId('mrRestore'), 'change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      var d;
+      try { d = JSON.parse(String(fr.result)); }
+      catch (err){ toast('That is not a readable backup'); return; }
+      if (!d || !d.missions){ toast('No missions in that backup'); return; }
+      state.setup = mergeInto(blankSetup(), d.setup || {});
+      state.imp = mergeInto(blankImport(), d.imp || {});
+      state.missions = normaliseMissions(d.missions);
+      save(); buildSetup(); applyDerivedFirstDeployment(); renderAll(); setTab('analytics');
+      toast('Backup restored');
+    };
+    fr.onerror = function(){ toast('Could not read that file'); };
+    fr.readAsText(f);
+    e.target.value = '';
+  });
+  on(byId('mrPdf'), 'click', function(){ exportPdf(); });
+  on(byId('mrClearLog'), 'click', function(ev){
+    confirmSheet('Clear mission log',
+      'This deletes all ' + state.missions.length + ' logged missions. Setup details are kept.',
+      'Delete missions', function(){
+        state.missions = [];
+        state.imp = blankImport();
+        save(); renderAll(); toast('Mission log cleared');
+      }, ev.currentTarget);
+  });
+  on(byId('mrWipe'), 'click', function(ev){
+    confirmSheet('Erase everything',
+      'This clears missions, setup details and saved preferences from this browser.',
+      'Erase', function(){
+        try { window.localStorage.removeItem(STORE_KEY); } catch (e){}
+        state.setup = blankSetup();
+        state.missions = [];
+        state.imp = blankImport();
+        state.ui.filters = { ship:'', role:'', type:'', year:'' };
+        buildSetup(); renderAll(); setTab('setup');
+        toast('Everything erased');
+      }, ev.currentTarget);
+  });
+}
+
+function renderAll(){
+  renderHeaderMeta();
+  renderStorageBanner();
+  if (state.ui.tab === 'analytics') renderAnalytics();
+  if (state.ui.tab === 'log') renderLog();
+  if (csvState.rows.length) renderPreview();
+}
+
+/* =====================================================================
+   15. PDF EXPORT
+   ===================================================================== */
+var PDF_W = 210, PDF_H = 297;
+var PDF_ML = 18, PDF_MR = 18, PDF_MT = 24, PDF_MB = 20;
+var PDF_CW = PDF_W - PDF_ML - PDF_MR;              /* 174 */
+var PDF_RIGHT = PDF_W - PDF_MR;                    /* 192 */
+
+var C_NAVY   = [27, 42, 94];
+var C_ORANGE = [221, 122, 43];
+var C_TEXT   = [22, 32, 74];
+var C_MUTED  = [140, 152, 191];
+var C_LINE   = [222, 226, 240];
+var C_WHITE  = [255, 255, 255];
+
+/* The vertical write head, in mm. Every helper advances it. */
+var pdfCursorY = PDF_MT;
+var pdfFontsOk = false;
+
+function registerPdfFonts(doc){
+  pdfFontsOk = false;
+  try {
+    doc.addFileToVFS('Exo2-Regular.ttf', UCN_FONTS.exo2Regular);
+    doc.addFont('Exo2-Regular.ttf', 'Exo2', 'normal');
+    doc.addFileToVFS('Exo2-Bold.ttf', UCN_FONTS.exo2Bold);
+    doc.addFont('Exo2-Bold.ttf', 'Exo2', 'bold');
+    doc.addFileToVFS('Exo2-Italic.ttf', UCN_FONTS.exo2Italic);
+    doc.addFont('Exo2-Italic.ttf', 'Exo2', 'italic');
+    doc.addFileToVFS('Orbitron-Bold.ttf', UCN_FONTS.orbitronBold);
+    doc.addFont('Orbitron-Bold.ttf', 'Orbitron', 'bold');
+    pdfFontsOk = true;
+  } catch (e){
+    pdfFontsOk = false;                 /* degrade to helvetica, never break export */
+  }
+}
+function pdfBodyFont(){ return pdfFontsOk ? 'Exo2' : 'helvetica'; }
+/* jsPDF drops a glyph the embedded font lacks, with no error, leaving a hole
+   in the sentence. Exo 2 covers ASCII, Latin-1 and Latin Extended-A plus the
+   punctuation below; anything else becomes a visible "?" rather than nothing.
+   Every string drawn into the PDF passes through here. */
+var PDF_EXTRA_GLYPHS = '\u2014\u2013\u2026\u00bb\u00ab\u00b7\u00d7\u00b0\u2020' +
+                       '\u2032\u2039\u203a\u201c\u201d\u2018\u2019\u20ac\u00a3' +
+                       '\u00a5\u00a7\u00b6\u2022\u2030\u2044\u2212\u2264\u2265' +
+                       '\u2260\u00b1\u00f7';
+function pdfSafe(str){
+  var s = String(str == null ? '' : str), out = '', i, ch, c;
+  for (i = 0; i < s.length; i++){
+    ch = s.charAt(i); c = s.charCodeAt(i);
+    if (c === 9 || c === 10 || c === 13){ out += ' '; continue; }
+    if (c >= 32 && c <= 126){ out += ch; continue; }
+    if (c >= 0x00A0 && c <= 0x017F){ out += ch; continue; }
+    if (PDF_EXTRA_GLYPHS.indexOf(ch) > -1){ out += ch; continue; }
+    out += '?';
+  }
+  return out;
+}
+function pdfHeadingFont(){ return pdfFontsOk ? 'Orbitron' : 'helvetica'; }
+
+function setC(doc, which, c){
+  if (which === 't') doc.setTextColor(c[0], c[1], c[2]);
+  else if (which === 'f') doc.setFillColor(c[0], c[1], c[2]);
+  else doc.setDrawColor(c[0], c[1], c[2]);
+}
+
+/* Console frame: hairline navy rect, filled corner blocks, orange corner pips. */
+function pdfDrawFrame(doc){
+  var x0 = 8, y0 = 8, x1 = PDF_W - 8, y1 = PDF_H - 8;
+  setC(doc, 'd', C_NAVY);
+  doc.setLineWidth(0.5);
+  doc.rect(x0, y0, x1 - x0, y1 - y0, 'S');
+  setC(doc, 'f', C_NAVY);
+  doc.rect(x0, y0 - 2, 16, 4, 'F');
+  doc.rect(x1 - 16, y0 - 2, 16, 4, 'F');
+  doc.rect(x0, y1 - 2, 16, 4, 'F');
+  doc.rect(x1 - 16, y1 - 2, 16, 4, 'F');
+  setC(doc, 'f', C_ORANGE);
+  doc.circle(x0, y0, 1.6, 'F');
+  doc.circle(x1, y0, 1.6, 'F');
+  doc.circle(x0, y1, 1.6, 'F');
+  doc.circle(x1, y1, 1.6, 'F');
+}
+function pdfNewPage(doc){
+  doc.addPage();
+  pdfDrawFrame(doc);
+  pdfCursorY = PDF_MT;
+}
+function pdfEnsureSpace(doc, mm){
+  if (pdfCursorY + mm > PDF_H - PDF_MB) pdfNewPage(doc);
+}
+/* pdfCursorY is the TOP of the next block, not a baseline. Text is dropped by
+   its approximate ascent so a heading never rides up into the block above. */
+function ascent(fontSize){ return fontSize * 0.3528 * 0.75; }
+
+function pdfHeading(doc, text){
+  pdfEnsureSpace(doc, 14);
+  doc.setFont(pdfHeadingFont(), 'bold');
+  doc.setFontSize(13);
+  setC(doc, 't', C_NAVY);
+  doc.text(pdfSafe(text).toUpperCase(), PDF_ML, pdfCursorY + ascent(13));
+  setC(doc, 'd', C_ORANGE);
+  doc.setLineWidth(0.6);
+  doc.line(PDF_ML, pdfCursorY + ascent(13) + 2.6, PDF_RIGHT, pdfCursorY + ascent(13) + 2.6);
+  pdfCursorY += 9 + ascent(13);
+}
+function pdfSubHeading(doc, text){
+  pdfEnsureSpace(doc, 10);
+  pdfCursorY += 2;
+  doc.setFont(pdfHeadingFont(), 'bold');
+  doc.setFontSize(10.5);
+  setC(doc, 't', C_NAVY);
+  doc.text(pdfSafe(text).toUpperCase(), PDF_ML, pdfCursorY + ascent(10.5));
+  pdfCursorY += 6 + ascent(10.5);
+}
+function pdfLabel(doc, text){
+  pdfEnsureSpace(doc, 9);
+  pdfCursorY += 2;
+  doc.setFont(pdfBodyFont(), 'bold');
+  doc.setFontSize(9.5);
+  setC(doc, 't', C_NAVY);
+  doc.text(pdfSafe(text).toUpperCase(), PDF_ML, pdfCursorY + ascent(9.5));
+  pdfCursorY += 5.5 + ascent(9.5);
+}
+function pdfParagraph(doc, text, opts){
+  opts = opts || {};
+  var size = opts.fontSize || 10;
+  var lh = size * 0.5;
+  doc.setFont(pdfBodyFont(), opts.italic ? 'italic' : 'normal');
+  doc.setFontSize(size);
+  setC(doc, 't', opts.color || C_TEXT);
+  var lines = doc.splitTextToSize(pdfSafe(text), PDF_CW);
+  for (var i = 0; i < lines.length; i++){
+    pdfEnsureSpace(doc, lh);
+    doc.text(lines[i], PDF_ML, pdfCursorY + ascent(size));
+    pdfCursorY += lh;
+  }
+  pdfCursorY += 2.4;
+}
+function pdfEmpty(doc, msg){
+  pdfParagraph(doc, msg || 'None recorded.', { italic:true, color:C_MUTED, fontSize:9.5 });
+}
+function pdfTruncate(doc, text, maxW){
+  var s = pdfSafe(text);
+  if (doc.getTextWidth(s) <= maxW) return s;
+  while (s.length > 1 && doc.getTextWidth(s + '…') > maxW) s = s.slice(0, -1);
+  return s + '…';
+}
+function pdfTable(doc, headers, rows, colWidths){
+  if (!rows || !rows.length){ pdfEmpty(doc); return; }
+  var i, j, x;
+  function band(){
+    pdfEnsureSpace(doc, 7);
+    setC(doc, 'f', C_NAVY);
+    doc.rect(PDF_ML, pdfCursorY, PDF_CW, 7, 'F');
+    doc.setFont(pdfBodyFont(), 'bold');
+    doc.setFontSize(8);
+    setC(doc, 't', C_WHITE);
+    x = PDF_ML;
+    for (j = 0; j < headers.length; j++){
+      doc.text(pdfTruncate(doc, String(headers[j]).toUpperCase(), colWidths[j] - 5),
+               x + 2.5, pdfCursorY + 4.6);
+      x += colWidths[j];
+    }
+    pdfCursorY += 7;
+  }
+  band();
+  for (i = 0; i < rows.length; i++){
+    if (pdfCursorY + 7 > PDF_H - PDF_MB){ pdfNewPage(doc); band(); }
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(9);
+    setC(doc, 't', C_TEXT);
+    x = PDF_ML;
+    for (j = 0; j < headers.length; j++){
+      doc.text(pdfTruncate(doc, rows[i][j] == null ? '' : String(rows[i][j]), colWidths[j] - 5),
+               x + 2.5, pdfCursorY + 4.7);
+      x += colWidths[j];
+    }
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(PDF_ML, pdfCursorY + 7, PDF_RIGHT, pdfCursorY + 7);
+    pdfCursorY += 7;
+  }
+  pdfCursorY += 4;
+}
+/* Free text lives in a bordered box, never truncated into a table cell. */
+function pdfBlockNote(doc, title, text){
+  var lh = 4.4, pad = 3.4;
+  doc.setFont(pdfBodyFont(), 'normal');
+  doc.setFontSize(9.5);
+  var body = pdfSafe(clean(text));
+  if (!body){
+    if (title) pdfLabel(doc, title);
+    pdfEmpty(doc);
+    return;
+  }
+  var lines = doc.splitTextToSize(body, PDF_CW - pad * 2);
+  if (title) pdfLabel(doc, title);
+  var idx = 0;
+  while (idx < lines.length){
+    pdfEnsureSpace(doc, lh * 2 + pad * 2);
+    var room = Math.floor((PDF_H - PDF_MB - pdfCursorY - pad * 2) / lh);
+    var take = Math.min(room, lines.length - idx);
+    var boxH = take * lh + pad * 2;
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.3);
+    doc.rect(PDF_ML, pdfCursorY, PDF_CW, boxH, 'S');
+    setC(doc, 'f', C_ORANGE);
+    doc.rect(PDF_ML, pdfCursorY, 1.2, boxH, 'F');
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(9.5);
+    setC(doc, 't', C_TEXT);
+    for (var i = 0; i < take; i++){
+      doc.text(lines[idx + i], PDF_ML + pad, pdfCursorY + pad + lh * i + 3);
+    }
+    pdfCursorY += boxH + 3;
+    idx += take;
+  }
+}
+
+/* ---- PDF charts ------------------------------------------------------ */
+function pdfBarChart(doc, labels, values, height){
+  var h = height || 52, gutter = 12;
+  pdfEnsureSpace(doc, h + 12);
+  var x0 = PDF_ML + gutter, w = PDF_CW - gutter, y0 = pdfCursorY;
+  var maxV = 0, i;
+  for (i = 0; i < values.length; i++) maxV = Math.max(maxV, values[i]);
+  var yMax = pinnedMax(maxV, 10, 5);
+  doc.setFont(pdfBodyFont(), 'normal');
+  doc.setFontSize(7);
+  var ticks = niceTicks(yMax);
+  for (i = 0; i <= ticks; i++){
+    var y = y0 + h - (h * i / ticks);
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(x0, y, x0 + w, y);
+    setC(doc, 't', C_MUTED);
+    doc.text(String(Math.round(yMax * i / ticks)), x0 - 2, y + 1, { align:'right' });
+  }
+  var n = values.length || 1, slot = w / n, bw = Math.max(0.8, Math.min(9, slot * 0.62));
+  setC(doc, 'f', C_ORANGE);
+  for (i = 0; i < values.length; i++){
+    if (!values[i]) continue;
+    var bh = h * (values[i] / yMax);
+    doc.rect(x0 + slot * i + (slot - bw) / 2, y0 + h - bh, bw, bh, 'F');
+  }
+  setC(doc, 'd', C_NAVY);
+  doc.setLineWidth(0.3);
+  doc.line(x0, y0 + h, x0 + w, y0 + h);
+  setC(doc, 't', C_MUTED);
+  doc.setFontSize(7);
+  if (labels.length){
+    doc.text(String(labels[0]), x0, y0 + h + 4);
+    if (labels.length > 1){
+      doc.text(String(labels[labels.length - 1]), x0 + w, y0 + h + 4, { align:'right' });
+    }
+  }
+  pdfCursorY = y0 + h + 9;
+}
+function pdfLineChart(doc, labels, values, height){
+  var h = height || 46, gutter = 12;
+  pdfEnsureSpace(doc, h + 12);
+  var x0 = PDF_ML + gutter, w = PDF_CW - gutter, y0 = pdfCursorY;
+  var maxV = 0, i;
+  for (i = 0; i < values.length; i++) maxV = Math.max(maxV, values[i]);
+  var yMax = pinnedMax(maxV, 25, 25);
+  doc.setFont(pdfBodyFont(), 'normal');
+  doc.setFontSize(7);
+  var ticks = niceTicks(yMax);
+  for (i = 0; i <= ticks; i++){
+    var y = y0 + h - (h * i / ticks);
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(x0, y, x0 + w, y);
+    setC(doc, 't', C_MUTED);
+    doc.text(String(Math.round(yMax * i / ticks)), x0 - 2, y + 1, { align:'right' });
+  }
+  var n = values.length, step = n > 1 ? w / (n - 1) : 0;
+  setC(doc, 'd', C_ORANGE);
+  setC(doc, 'f', C_ORANGE);
+  doc.setLineWidth(0.6);
+  for (i = 0; i < n; i++){
+    var px = x0 + step * i, py = y0 + h - h * (values[i] / yMax);
+    if (i > 0){
+      doc.line(x0 + step * (i - 1), y0 + h - h * (values[i - 1] / yMax), px, py);
+    }
+    if (n <= 24) doc.circle(px, py, 0.7, 'F');
+  }
+  if (n === 1) doc.circle(x0, y0 + h - h * (values[0] / yMax), 1, 'F');
+  setC(doc, 'd', C_NAVY);
+  doc.setLineWidth(0.3);
+  doc.line(x0, y0 + h, x0 + w, y0 + h);
+  setC(doc, 't', C_MUTED);
+  doc.setFontSize(7);
+  if (labels.length){
+    doc.text(String(labels[0]), x0, y0 + h + 4);
+    if (labels.length > 1){
+      doc.text(String(labels[labels.length - 1]), x0 + w, y0 + h + 4, { align:'right' });
+    }
+  }
+  pdfCursorY = y0 + h + 9;
+}
+/* The print twin of the on-screen meter rows. */
+function pdfCatBars(doc, rows, total){
+  if (!rows.length){ pdfEmpty(doc); return; }
+  var labelW = 44, trackX = PDF_ML + labelW + 2, trackW = 96, rowH = 6.4;
+  var top = 0, i;
+  for (i = 0; i < rows.length; i++) top = Math.max(top, rows[i].n);
+  top = top || 1;
+  for (i = 0; i < rows.length; i++){
+    pdfEnsureSpace(doc, rowH);
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(9);
+    setC(doc, 't', C_TEXT);
+    doc.text(pdfTruncate(doc, rows[i].key, labelW), PDF_ML, pdfCursorY + 3.4);
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.2);
+    doc.rect(trackX, pdfCursorY + 0.9, trackW, 3.2, 'S');
+    setC(doc, 'f', C_ORANGE);
+    doc.rect(trackX, pdfCursorY + 0.9, trackW * (rows[i].n / top), 3.2, 'F');
+    doc.setFontSize(8.5);
+    setC(doc, 't', C_NAVY);
+    doc.text(rows[i].n + ' (' + Math.round(rows[i].n / (total || 1) * 100) + '%)',
+             PDF_RIGHT, pdfCursorY + 3.4, { align:'right' });
+    pdfCursorY += rowH;
+  }
+  pdfCursorY += 3;
+}
+
+/* U+2605 is in none of the embedded fonts, and jsPDF omits a missing glyph
+   silently, so print stars are drawn rather than typed. */
+function pdfStar(doc, cx, cy, r, filled){
+  var pts = [], segs = [], i, ang, rad;
+  for (i = 0; i < 10; i++){
+    ang = -Math.PI / 2 + i * Math.PI / 5;
+    rad = (i % 2 === 0) ? r : r * 0.42;
+    pts.push([cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad]);
+  }
+  for (i = 1; i < pts.length; i++){
+    segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
+  }
+  setC(doc, 'f', C_ORANGE);
+  setC(doc, 'd', C_MUTED);
+  doc.setLineWidth(0.25);
+  doc.lines(segs, pts[0][0], pts[0][1], [1, 1], filled ? 'F' : 'S', true);
+}
+function pdfStarRow(doc, value, label){
+  pdfEnsureSpace(doc, 9);
+  var r = 2.4, gap = 6.2, x = PDF_ML + r, i;
+  for (i = 1; i <= 5; i++) pdfStar(doc, x + gap * (i - 1), pdfCursorY + r + 1, r, i <= value);
+  doc.setFont(pdfBodyFont(), 'normal');
+  doc.setFontSize(10);
+  setC(doc, 't', C_TEXT);
+  doc.text(pdfSafe(label), PDF_ML + gap * 5 + 2, pdfCursorY + r + 2.4);
+  pdfCursorY += 9;
+}
+
+/* ---- cover, sections, contents --------------------------------------- */
+function pdfInsignia(doc, cx, cy, r){
+  setC(doc, 'd', C_NAVY);
+  doc.setLineWidth(1.1);
+  doc.circle(cx, cy, r, 'S');
+  setC(doc, 'd', C_ORANGE);
+  doc.setLineWidth(0.4);
+  doc.circle(cx, cy, r - 2.6, 'S');
+  setC(doc, 'f', C_NAVY);
+  doc.triangle(cx, cy - r * 0.55, cx - r * 0.5, cy + r * 0.34, cx + r * 0.5, cy + r * 0.34, 'F');
+  setC(doc, 'f', C_ORANGE);
+  doc.triangle(cx, cy - r * 0.16, cx - r * 0.26, cy + r * 0.28, cx + r * 0.26, cy + r * 0.28, 'F');
+  doc.rect(cx - r * 0.55, cy + r * 0.5, r * 1.1, r * 0.13, 'F');
+}
+function pdfCover(doc, meta){
+  pdfDrawFrame(doc);
+  var cx = PDF_W / 2;
+  pdfInsignia(doc, cx, 42, 16);
+
+  doc.setFont(pdfHeadingFont(), 'bold');
+  doc.setFontSize(21);
+  setC(doc, 't', C_NAVY);
+  doc.text('UCN MISSION ANALYTICS', cx, 84, { align:'center' });
+
+  doc.setFont(pdfHeadingFont(), 'bold');
+  doc.setFontSize(9);
+  setC(doc, 't', C_ORANGE);
+  doc.text('S E R V I C E   R E C O R D', cx, 91, { align:'center' });
+
+  var tblW = 120, keyW = 40, valW = tblW - keyW, rowH = 8.5;
+  var x = (PDF_W - tblW) / 2, y = 108, i;
+  for (i = 0; i < meta.length; i++){
+    setC(doc, 'f', C_NAVY);
+    doc.rect(x, y, keyW, rowH, 'F');
+    setC(doc, 'd', C_LINE);
+    doc.setLineWidth(0.2);
+    doc.rect(x + keyW, y, valW, rowH, 'S');
+    doc.setFont(pdfBodyFont(), 'bold');
+    doc.setFontSize(8);
+    setC(doc, 't', C_WHITE);
+    doc.text(pdfTruncate(doc, String(meta[i][0]).toUpperCase(), keyW - 5), x + 2.5, y + 5.5);
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(9.5);
+    setC(doc, 't', C_TEXT);
+    doc.text(pdfTruncate(doc, String(meta[i][1] || '—'), valW - 5), x + keyW + 2.5, y + 5.5);
+    y += rowH;
+  }
+}
+function pdfSectionStart(doc, title, tocEntries){
+  pdfNewPage(doc);
+  tocEntries.push({ title: title, page: doc.internal.getNumberOfPages() });
+  pdfHeading(doc, title);
+}
+/* Page 2 was reserved blank at the start; the contents are written back into
+   it here, once every section knows its real page number. */
+function pdfDrawToc(doc, tocEntries){
+  var saved = pdfCursorY;
+  doc.setPage(2);
+  pdfCursorY = PDF_MT;
+  pdfHeading(doc, 'Table of Contents');
+  var i, y;
+  for (i = 0; i < tocEntries.length; i++){
+    y = pdfCursorY;
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(10);
+    setC(doc, 't', C_TEXT);
+    var title = pdfSafe(tocEntries[i].title);
+    doc.text(title, PDF_ML, y + 4.6);
+    var num = String(tocEntries[i].page);
+    doc.setFont(pdfBodyFont(), 'bold');
+    setC(doc, 't', C_NAVY);
+    doc.text(num, PDF_RIGHT, y + 4.6, { align:'right' });
+    doc.setFont(pdfBodyFont(), 'normal');
+    var tW = doc.getTextWidth(title);
+    doc.setFont(pdfBodyFont(), 'bold');
+    var nW = doc.getTextWidth(num);
+    var lx0 = PDF_ML + tW + 2.5, lx1 = PDF_RIGHT - nW - 2.5;
+    if (lx1 > lx0){
+      setC(doc, 'd', C_LINE);
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([0.6, 1.2], 0);
+      doc.line(lx0, y + 3.6, lx1, y + 3.6);
+      doc.setLineDashPattern([], 0);
+    }
+    doc.link(PDF_ML, y, PDF_CW, 7, { pageNumber: tocEntries[i].page });
+    pdfCursorY += 9;
+  }
+  pdfCursorY = saved;
+}
+function pdfFooters(doc){
+  var total = doc.internal.getNumberOfPages(), i;
+  for (i = 2; i <= total; i++){
+    doc.setPage(i);
+    doc.setFont(pdfBodyFont(), 'normal');
+    doc.setFontSize(7);
+    setC(doc, 't', C_MUTED);
+    doc.text(i + ' / ' + total, PDF_W / 2, PDF_H - 11, { align:'center' });
+  }
+}
+
+/* ---- the document ---------------------------------------------------- */
+/* The log is whatever reckoning the CSV used. Stamping a 2182 compile date on
+   a record of 2026 missions just looks wrong, so the stamp follows the data and
+   only falls back to fleet reckoning when there is none. */
+function compiledStamp(){
+  var n = new Date(), realY = n.getFullYear(), latest = '', i, y;
+  for (i = 0; i < state.missions.length; i++){
+    if (state.missions[i].date > latest) latest = state.missions[i].date;
+  }
+  y = (latest && parseInt(latest.slice(0, 4), 10) <= realY + 1)
+      ? realY : realY + IN_UNIVERSE_YEAR_OFFSET;
+  return y + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+}
+function filterSummary(){
+  var f = state.ui.filters, bits = [];
+  if (f.ship) bits.push('ship: ' + f.ship);
+  if (f.role) bits.push('role: ' + f.role);
+  if (f.type) bits.push('type: ' + f.type);
+  if (f.year) bits.push('year: ' + f.year);
+  return bits.length ? bits.join(' · ') : 'None — every logged mission is included';
+}
+function exportPdf(){
+  if (!window.jspdf || !window.jspdf.jsPDF){
+    window.alert('The PDF engine did not load, so this report cannot be built.');
+    return;
+  }
+  var list = filteredMissions();
+  if (!state.missions.length){ toast('Nothing to report yet'); return; }
+  if (!list.length){ toast('No missions match these filters'); return; }
+
+  var btn = byId('anExport');
+  if (btn) btn.disabled = true;
+  try {
+    buildPdf(list);
+    toast('Report exported');
+  } catch (e){
+    window.alert('The report could not be built: ' + (e && e.message ? e.message : e));
+  }
+  if (btn) btn.disabled = false;
+}
+function buildPdf(list){
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF({ unit:'mm', format:'a4', compress:true });
+  registerPdfFonts(doc);
+  pdfCursorY = PDF_MT;
+
+  var s = state.setup;
+  var a = aggregate(list);
+  var toc = [];
+
+  var meta = [
+    ['Name', s.loggedBy],
+    ['Rank', s.rank],
+    ['First deployment', s.firstDeployment || a.firstDate],
+    ['Missions', String(a.total)],
+    ['Ships', a.byShip.map(function(r){ return r.key; }).join(', ')],
+    ['Period', a.total ? monthLabel(monthKeyOf(a.firstDate)) + ' – ' +
+                         monthLabel(monthKeyOf(a.lastDate)) : '—']
+  ];
+  if (a.ratedCount) meta.push(['Average rating', fmt1(a.avgRating) + ' / 5']);
+  meta.push(['Compiled', compiledStamp()]);
+
+  pdfCover(doc, meta);
+  doc.addPage();                 /* page 2 is reserved for the contents */
+  pdfDrawFrame(doc);
+
+  /* --- 1. Summary --- */
+  pdfSectionStart(doc, 'Summary', toc);
+  pdfParagraph(doc,
+    a.total + ' mission' + (a.total === 1 ? '' : 's') + ' logged between ' +
+    a.firstDate + ' and ' + a.lastDate + ', spanning ' + a.months.length +
+    ' calendar month' + (a.months.length === 1 ? '' : 's') + ', of which ' +
+    a.activeMonths + ' had at least one mission.');
+  pdfSubHeading(doc, 'Key figures');
+  var summaryRows = [
+    ['Missions logged', String(a.total)],
+    ['Months spanned', String(a.months.length)],
+    ['Active months', String(a.activeMonths)],
+    ['Average per month', fmt1(a.avgPerMonth)],
+    ['Average per active month', fmt1(a.avgPerActiveMonth)],
+    ['Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—'],
+    ['Ships served on', String(a.byShip.length)],
+    ['Distinct roles played', String(a.namedRoles.length)],
+    ['Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—']
+  ];
+  if (a.durationSamples){
+    summaryRows.push(['Time on station', hoursMins(a.totalMinutes) +
+      ' (from ' + a.durationSamples + ' of ' + a.total + ')']);
+    summaryRows.push(['Average mission length',
+      hoursMins(Math.round(a.totalMinutes / a.durationSamples))]);
+  }
+  pdfTable(doc, ['Measure', 'Value'], summaryRows, [92, 82]);
+  if (a.ratedCount){
+    pdfSubHeading(doc, 'Ratings');
+    pdfStarRow(doc, Math.round(a.avgRating),
+      fmt1(a.avgRating) + ' out of 5, across ' + a.ratedCount + ' rated mission' +
+      (a.ratedCount === 1 ? '' : 's'));
+    var rrows = [], ri;
+    for (ri = 5; ri >= 1; ri--){
+      rrows.push({ key: ri + (ri === 1 ? ' star' : ' stars'), n: a.ratingCounts[ri - 1] });
+    }
+    pdfCatBars(doc, rrows, a.ratedCount);
+  }
+  pdfSubHeading(doc, 'Filters applied');
+  pdfParagraph(doc, filterSummary(), { fontSize:9.5, color:C_MUTED, italic:true });
+
+  /* --- 2. Missions per month --- */
+  pdfSectionStart(doc, 'Missions per Month', toc);
+  pdfParagraph(doc,
+    'One bar per calendar month across the whole period, including months with ' +
+    'no missions. The axis is pinned so this chart can be compared with an ' +
+    'earlier report rather than rescaled to fit.');
+  pdfBarChart(doc, a.months.map(monthLabel), a.counts, 54);
+  var monthRows = [], i;
+  for (i = 0; i < a.months.length; i++){
+    monthRows.push([monthLabel(a.months[i]), String(a.counts[i]), String(a.cumulative[i])]);
+  }
+  pdfTable(doc, ['Month', 'Missions', 'Running total'], monthRows, [70, 52, 52]);
+
+  /* --- 3. Cumulative record --- */
+  pdfSectionStart(doc, 'Cumulative Record', toc);
+  pdfParagraph(doc, 'Running total of logged missions, one point per month.');
+  pdfLineChart(doc, a.months.map(monthLabel), a.cumulative, 60);
+  pdfSubHeading(doc, 'Rate of accumulation');
+  pdfParagraph(doc,
+    'From ' + monthLabel(a.months[0]) + ' to ' + monthLabel(a.months[a.months.length - 1]) +
+    ', the record grew by ' + a.total + ' mission' + (a.total === 1 ? '' : 's') +
+    ', an average of ' + fmt1(a.avgPerMonth) + ' per calendar month.');
+
+  /* --- 4. Ships --- */
+  pdfSectionStart(doc, 'Ship Deployment', toc);
+  pdfParagraph(doc, 'Where the missions were flown from.');
+  pdfCatBars(doc, a.byShip, a.total);
+  pdfTable(doc, ['Ship', 'Missions', 'Share'],
+    a.byShip.map(function(r){
+      return [r.key, String(r.n), Math.round(r.n / a.total * 100) + '%'];
+    }), [87, 43, 44]);
+
+  /* --- 5. Roles --- */
+  pdfSectionStart(doc, 'Role Breakdown', toc);
+  pdfParagraph(doc, 'The station played on each logged mission.');
+  pdfCatBars(doc, a.byRole, a.total);
+  pdfTable(doc, ['Role', 'Missions', 'Share'],
+    a.byRole.map(function(r){
+      return [r.key, String(r.n), Math.round(r.n / a.total * 100) + '%'];
+    }), [87, 43, 44]);
+  pdfSubHeading(doc, 'Roles by ship');
+  var cross = [], si, ri;
+  for (si = 0; si < a.byShip.length; si++){
+    var shipName = a.byShip[si].key;
+    var sub = countBy(list.filter(function(m){ return labelOf(m.ship) === shipName; }), 'role');
+    for (ri = 0; ri < sub.length; ri++){
+      cross.push([shipName, sub[ri].key, String(sub[ri].n)]);
+    }
+  }
+  pdfTable(doc, ['Ship', 'Role', 'Missions'], cross, [64, 64, 46]);
+
+  /* --- 6. Types and outcomes --- */
+  pdfSectionStart(doc, 'Mission Types', toc);
+  pdfCatBars(doc, a.byType, a.total);
+  pdfTable(doc, ['Type', 'Missions', 'Share'],
+    a.byType.map(function(r){
+      return [r.key, String(r.n), Math.round(r.n / a.total * 100) + '%'];
+    }), [87, 43, 44]);
+  pdfSubHeading(doc, 'Outcomes');
+  pdfTable(doc, ['Outcome', 'Missions', 'Share'],
+    a.byOutcome.map(function(r){
+      return [r.key, String(r.n), Math.round(r.n / a.total * 100) + '%'];
+    }), [87, 43, 44]);
+
+  /* --- 7. Mission log --- */
+  pdfSectionStart(doc, 'Mission Log', toc);
+  var logRows = list.slice(0).sort(function(x, y){
+    return x.date < y.date ? -1 : (x.date > y.date ? 1 : 0);
+  }).map(function(m){
+    return [m.date, labelOf(m.ship), labelOf(m.role), m.name || '—',
+            m.type || '—', m.rating ? (m.rating + ' / 5') : '—'];
+  });
+  pdfTable(doc, ['Date', 'Ship', 'Role', 'Mission', 'Type', 'Rating'],
+           logRows, [24, 30, 34, 41, 26, 19]);
+
+  var noted = list.filter(function(m){ return !!m.notes; });
+  if (noted.length){
+    pdfSubHeading(doc, 'Mission notes');
+    for (i = 0; i < noted.length; i++){
+      pdfBlockNote(doc, noted[i].date + (noted[i].name ? ' — ' + noted[i].name : ''),
+                   noted[i].notes);
+    }
+  }
+
+  /* --- 8. Data source --- */
+  pdfSectionStart(doc, 'Data Source', toc);
+  pdfParagraph(doc,
+    'Every figure in this report is derived from the records below. Imported ' +
+    'text is reproduced as written.');
+  pdfTable(doc, ['Field', 'Value'], [
+    ['Source file', state.imp.filename || 'Entered by hand'],
+    ['Imported', state.imp.importedAt || '—'],
+    ['Rows read', String(state.imp.rowsRead || 0)],
+    ['Rows imported', String(state.imp.rowsImported || 0)],
+    ['Rows skipped', String((state.imp.skipped || []).length)],
+    ['Missions held', String(state.missions.length)],
+    ['Missions in this report', String(list.length)]
+  ], [64, 110]);
+  pdfSubHeading(doc, 'Rows the import could not use');
+  pdfTable(doc, ['Line', 'Reason'],
+    (state.imp.skipped || []).map(function(r){ return [String(r.line), r.reason]; }),
+    [26, 148]);
+  pdfSubHeading(doc, 'About this tool');
+  pdfParagraph(doc,
+    'UCN Mission Analytics is a fan-made tool. It is not affiliated with, ' +
+    'endorsed by, or connected to Bridge Command or The London Space Elevator Ltd. ' +
+    'Typefaces: Exo 2 and Orbitron (SIL Open Font License 1.1). PDF engine: jsPDF (MIT).',
+    { fontSize:9, color:C_MUTED });
+
+  pdfDrawToc(doc, toc);
+  pdfFooters(doc);
+
+  doc.save('UCN-Service-Record-' + compiledStamp().replace(/-/g, '') + '.pdf');
+}
+
+/* =====================================================================
+   16. BOOT
+   ===================================================================== */
+function init(){
+  storageOk = storageProbe();
+  load();
+  buildSetup();
+  wireHeader();
+  wireNav();
+  wireSetup();
+  wireImport();
+  wireAnalytics();
+  wireLog();
+  wireMore();
+  wireCollapsibles();
+  wireSheetGlobals();
+  applyDerivedFirstDeployment();
+  renderImport();
+  renderAll();
+  setTab(state.ui.tab);
+  window.setTimeout(publishHeaderHeight, 60);
+  if (document.fonts && document.fonts.ready && document.fonts.ready.then){
+    document.fonts.ready.then(function(){ publishHeaderHeight(); });
+  }
+}
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init, false);
+} else {
+  init();
+}
+})();
+</script>
+</head>
+<body>
+
+<header id="appHeader">
+  <div class="hd-inner">
+    <div class="hd-top">
+      <svg class="hd-mark" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+        <circle cx="20" cy="20" r="18" fill="none" stroke="#DD7A2B" stroke-width="2"/>
+        <circle cx="20" cy="20" r="13" fill="none" stroke="#2a3a66" stroke-width="1.4"/>
+        <path d="M20 8 L28 26 L12 26 Z" fill="#1B2A5E" stroke="#DD7A2B" stroke-width="1.2"/>
+        <path d="M20 16 L24 25 L16 25 Z" fill="#DD7A2B"/>
+        <rect x="12" y="29" width="16" height="2.4" fill="#DD7A2B"/>
+      </svg>
+      <div class="hd-titles">
+        <div class="hd-title">UCN Mission Analytics</div>
+        <div class="hd-sub">United Command Navy — Service Record</div>
+      </div>
+      <button type="button" class="hd-btn" id="hdToggle" aria-expanded="true"
+              aria-controls="hdMeta"><span class="ic">🙈</span>Hide</button>
+    </div>
+    <div class="hd-meta" id="hdMeta"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ SETUP ============================ -->
+  <section class="panel" id="tab-setup" role="tabpanel" aria-labelledby="nav-setup">
+    <div id="setupBanner"></div>
+
+    <h2 class="sec">Service record</h2>
+    <p class="sub">Your name and rank. The deployment date fills itself in from the CSV.</p>
+
+    <div class="field">
+      <label for="suLoggedBy">Name or callsign</label>
+      <input type="text" id="suLoggedBy" placeholder="Name or callsign" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="suRank">Rank</label>
+      <select id="suRank"></select>
+    </div>
+    <div class="field hidden">
+      <label for="suRankOther">Rank (typed)</label>
+      <input type="text" id="suRankOther" placeholder="Type the rank">
+    </div>
+
+    <div class="field">
+      <label for="suFirst">Date of first deployment</label>
+      <input type="date" id="suFirst">
+    </div>
+    <p class="sub" id="suFirstNote"></p>
+
+    <button type="button" class="btn-primary" id="setupGo">Import a deployment CSV</button>
+    <button type="button" class="btn-quiet" id="newSession">Start a new record</button>
+  </section>
+
+  <!-- ============================ IMPORT =========================== -->
+  <section class="panel" id="tab-import" role="tabpanel" aria-labelledby="nav-import">
+    <h2 class="sec">Source</h2>
+    <p class="sub">A CSV of the missions you have flown. Nothing leaves this device.</p>
+
+    <label class="filelabel btn-add" for="impFile">＋ Choose a CSV file</label>
+    <input type="file" id="impFile" accept=".csv,.tsv,.txt,text/csv,text/plain" class="sr">
+    <div id="impSourceState"></div>
+
+    <button type="button" class="coll-tog" aria-expanded="false" aria-controls="impPasteBody">
+      <span>Paste the rows instead</span><span class="chev">▾</span>
+    </button>
+    <div class="coll-body" id="impPasteBody">
+      <div class="field">
+        <label for="impPaste">CSV text</label>
+        <textarea id="impPaste" rows="6" placeholder="date,ship,mission,category"></textarea>
+      </div>
+      <button type="button" class="btn-quiet" id="impPasteGo">Read pasted text</button>
+    </div>
+
+    <div id="impConfig" class="hidden">
+      <button type="button" class="coll-tog" id="impColsTog" aria-expanded="false"
+              aria-controls="impColsBody">
+        <span>Columns</span><span class="chev">▾</span>
+      </button>
+      <div class="coll-body" id="impColsBody">
+        <p class="sub">Guessed from the header row. Change anything that is wrong.</p>
+        <div id="impMapping"></div>
+      </div>
+
+      <button type="button" class="coll-tog" aria-expanded="false" aria-controls="impOptsBody">
+        <span>Reading options</span><span class="chev">▾</span>
+      </button>
+      <div class="coll-body" id="impOptsBody">
+      <div class="row2">
+        <div class="field">
+          <label for="impDateMode">Date format</label>
+          <select id="impDateMode">
+            <option value="auto">Auto detect</option>
+            <option value="dmy">Day first (31/12/2182)</option>
+            <option value="mdy">Month first (12/31/2182)</option>
+            <option value="ymd">ISO only (2182-12-31)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="impMerge">Merge mode</label>
+          <select id="impMerge">
+            <option value="append">Add to the log</option>
+            <option value="replace">Replace the log</option>
+          </select>
+        </div>
+      </div>
+      <div class="sw-row">
+        <span class="sw-lb" id="impHeaderLb">First row is a header</span>
+        <button type="button" class="sw" id="impHeader" role="switch"
+                aria-checked="true" aria-labelledby="impHeaderLb"></button>
+      </div>
+      <div class="sw-row">
+        <span class="sw-lb" id="impDupesLb">Skip rows already logged</span>
+        <button type="button" class="sw" id="impDupes" role="switch"
+                aria-checked="true" aria-labelledby="impDupesLb"></button>
+      </div>
+      </div>
+
+      <h2 class="sec">Preview</h2>
+      <div id="impPreview"></div>
+      <button type="button" class="btn-primary" id="impGo" disabled>Import missions</button>
+    </div>
+
+    <button type="button" class="coll-tog" aria-expanded="false" aria-controls="impHelpBody">
+      <span>What the file should look like</span><span class="chev">▾</span>
+    </button>
+    <div class="coll-body" id="impHelpBody">
+      <p class="legal">Only the date column is required. Everything else is optional.
+        A deployment export with Date, Ship, Category and Mission columns is read as-is.
+        Dates may be ISO, day-first, month-first, or written out (14 Jan 2182).
+        Roles and ratings are yours to add afterwards on the Log tab.</p>
+      <div class="pre">Date,Ship,Category,Mission
+2026-08-20,UCS Takanami,Exploration,OPERATION SARGASSO
+2026-08-06,UCS Havock,Frontline,CELL 06-05</div>
+    </div>
+  </section>
+
+  <!-- =========================== ANALYTICS ========================= -->
+  <section class="panel" id="tab-analytics" role="tabpanel" aria-labelledby="nav-analytics">
+    <div id="anFilters" class="hidden">
+      <h2 class="sec">Filters</h2>
+      <div class="row2">
+        <div class="field">
+          <label for="flShip">Ship</label>
+          <select id="flShip"></select>
+        </div>
+        <div class="field">
+          <label for="flRole">Role played</label>
+          <select id="flRole"></select>
+        </div>
+      </div>
+      <button type="button" class="coll-tog" aria-expanded="false" aria-controls="flMore">
+        <span>More filters</span><span class="chev">▾</span>
+      </button>
+      <div class="coll-body" id="flMore">
+        <div class="row2">
+          <div class="field">
+            <label for="flType">Mission type</label>
+            <select id="flType"></select>
+          </div>
+          <div class="field">
+            <label for="flYear">Year</label>
+            <select id="flYear"></select>
+          </div>
+        </div>
+        <button type="button" class="btn-quiet" id="flReset">Clear all filters</button>
+      </div>
+    </div>
+    <div id="anBody"></div>
+    <button type="button" class="btn-primary" id="anExport" disabled>Export PDF report</button>
+  </section>
+
+  <!-- ============================= LOG ============================= -->
+  <section class="panel" id="tab-log" role="tabpanel" aria-labelledby="nav-log">
+    <h2 class="sec">Mission log</h2>
+    <p class="sub" id="logCount"></p>
+    <button type="button" class="btn-add" id="logAdd">＋ Add a mission</button>
+    <div id="logBody"></div>
+  </section>
+
+  <!-- ============================= MORE ============================ -->
+  <section class="panel" id="tab-more" role="tabpanel" aria-labelledby="nav-more">
+    <div id="moreBanner"></div>
+
+    <h2 class="sec">Data</h2>
+    <p class="sub">Everything is held in this browser only.</p>
+    <button type="button" class="btn-quiet" id="mrPdf">Export PDF report</button>
+    <button type="button" class="btn-quiet" id="mrBackup">Download a JSON backup</button>
+    <label class="filelabel btn-quiet" for="mrRestore">Restore from a JSON backup</label>
+    <input type="file" id="mrRestore" accept=".json,application/json" class="sr">
+    <button type="button" class="btn-primary" id="mrTemplate">Download a CSV template</button>
+
+    <h2 class="sec">Clear</h2>
+    <button type="button" class="btn-danger" id="mrClearLog">Delete every logged mission</button>
+    <button type="button" class="btn-danger" id="mrWipe">Erase everything on this device</button>
+
+    <button type="button" class="coll-tog" aria-expanded="false" aria-controls="aboutBody">
+      <span>About this tool</span><span class="chev">▾</span>
+    </button>
+    <div class="coll-body" id="aboutBody">
+      <p class="legal">
+        UCN Mission Analytics is a fan-made tool, built for personal record keeping.
+        It is not affiliated with, endorsed by, or connected to Bridge Command or
+        The London Space Elevator Ltd. Ship names, ranks and mission types are used
+        as a fan reference only.
+      </p>
+      <p class="legal">
+        Works fully offline. It makes no network requests of any kind and sends
+        nothing anywhere: your missions stay in this browser until you delete them.
+      </p>
+    </div>
+
+    <button type="button" class="coll-tog" aria-expanded="false" aria-controls="licenceBody">
+      <span>Licences</span><span class="chev">▾</span>
+    </button>
+    <div class="coll-body" id="licenceBody">
+      <p class="legal">
+        <b>Exo 2</b> and <b>Orbitron</b> typefaces — SIL Open Font License 1.1.<br>
+        <b>jsPDF</b> 4.2.1 — MIT License, © 2010–2025 James Hall and yWorks GmbH.<br>
+        Both are embedded in this file unmodified.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<nav role="tablist" aria-label="Sections">
+  <div class="nav-inner">
+    <button type="button" class="nav-btn" id="nav-setup" role="tab" aria-selected="true"
+            aria-controls="tab-setup"><span class="ic">📋</span><span class="lb">Setup</span></button>
+    <button type="button" class="nav-btn" id="nav-import" role="tab" aria-selected="false"
+            aria-controls="tab-import"><span class="ic">🧭</span><span class="lb">Import</span></button>
+    <button type="button" class="nav-btn" id="nav-analytics" role="tab" aria-selected="false"
+            aria-controls="tab-analytics"><span class="ic">⚡</span><span class="lb">Charts</span></button>
+    <button type="button" class="nav-btn" id="nav-log" role="tab" aria-selected="false"
+            aria-controls="tab-log"><span class="ic">🗒️</span><span class="lb">Log</span></button>
+    <button type="button" class="nav-btn" id="nav-more" role="tab" aria-selected="false"
+            aria-controls="tab-more"><span class="ic">🔧</span><span class="lb">More</span></button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="scrim hidden" id="scrim">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"
+       aria-labelledby="sheetTitle" tabindex="-1"></div>
+</div>
+
+</body>
+</html>
