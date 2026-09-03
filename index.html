@@ -1471,8 +1471,14 @@ function parseDuration(raw){
    ===================================================================== */
 var csvState = {
   filename:'', rows:[], headers:[], hasHeader:true, delim:',',
-  map:null, dateMode:'auto', mergeMode:'append', skipDupes:true
+  map:null, dateMode:'auto', mergeMode:'append', skipDupes:true,
+  defaultRole:'', shiftYears:false
 };
+/* Real-world dates in, fleet reckoning out. Opt-in, because a file already
+   written in 2182 must not be shifted twice. */
+function shiftIso(iso){
+  return (parseInt(iso.slice(0, 4), 10) + IN_UNIVERSE_YEAR_OFFSET) + iso.slice(4);
+}
 
 function ingestText(text, filename){
   if (!trim(text)){ toast('That file looks empty'); return; }
@@ -1484,6 +1490,7 @@ function ingestText(text, filename){
   csvState.hasHeader = looksLikeHeader(rows[0]);
   csvState.headers = csvState.hasHeader ? rows[0].map(clean) : synthHeaders(rows[0].length);
   csvState.map = computeMap();
+  if (csvState.map.role < 0 && state.setup.role) csvState.defaultRole = state.setup.role;
   renderImport();
   toast('Read ' + rows.length + ' line' + (rows.length === 1 ? '' : 's'));
 }
@@ -1540,12 +1547,13 @@ function buildImport(){
           : 'No date in the mapped date column' });
       continue;
     }
+    if (csvState.shiftYears) iso = shiftIso(iso);
     dur = parseDuration(cellAt(r, csvState.map.duration));
     rec = {
       id: uid(),
       date: iso,
       ship: cellAt(r, csvState.map.ship),
-      role: cellAt(r, csvState.map.role),
+      role: cellAt(r, csvState.map.role) || csvState.defaultRole,
       name: cellAt(r, csvState.map.name),
       type: cellAt(r, csvState.map.type),
       outcome: cellAt(r, csvState.map.outcome),
@@ -1569,8 +1577,11 @@ function renderImport(){
   var loaded = csvState.rows.length > 0;
   byId('impHeader').setAttribute('aria-checked', csvState.hasHeader ? 'true' : 'false');
   byId('impDupes').setAttribute('aria-checked', csvState.skipDupes ? 'true' : 'false');
+  byId('impShift').setAttribute('aria-checked', csvState.shiftYears ? 'true' : 'false');
   byId('impDateMode').value = csvState.dateMode;
   byId('impMerge').value = csvState.mergeMode;
+  writeOther('impRole', 'impRoleOther', csvState.defaultRole, ROLE_GROUPS,
+             { other:true, placeholder:'— Leave blank —' });
   byId('impSourceState').innerHTML = loaded
     ? '<div class="card"><div class="card-head">' +
         '<span class="badge">' + esc(csvState.filename.slice(0, 28)) + '</span>' +
@@ -1598,7 +1609,8 @@ function renderImport(){
         'Discard', function(){
           csvState = { filename:'', rows:[], headers:[], hasHeader:true, delim:',',
                        map:null, dateMode: csvState.dateMode, mergeMode: csvState.mergeMode,
-                       skipDupes: csvState.skipDupes };
+                       skipDupes: csvState.skipDupes, defaultRole: csvState.defaultRole,
+                       shiftYears: csvState.shiftYears };
           renderImport(); toast('File discarded');
         }, ev.currentTarget);
     });
@@ -1645,6 +1657,9 @@ function mapField(f){
 }
 
 function renderPreview(){
+  /* Reading options are wired before any file exists, and their handlers fire
+     once on setup, so there may be nothing to preview yet. */
+  if (!csvState.map || !csvState.rows.length) return;
   var res = buildImport();
   var n = res.missions.length;
   byId('impGo').disabled = n === 0;
@@ -1665,6 +1680,23 @@ function renderPreview(){
       (res.ambiguous === 1 ? ' was' : 's were') +
       ' ambiguous (day and month both 12 or under) and read as day-first. ' +
       'Set the date format below if that is wrong.</div>';
+  }
+  var maxYear = 0, y;
+  for (var q = 0; q < res.missions.length; q++){
+    y = parseInt(res.missions[q].date.slice(0, 4), 10);
+    if (y > maxYear) maxYear = y;
+  }
+  if (maxYear && !csvState.shiftYears && maxYear <= new Date().getFullYear() + 1){
+    html += '<div class="banner-note">These dates are in real-world reckoning (latest ' +
+      maxYear + '), but the log stamp on the Setup tab is ' +
+      (new Date().getFullYear() + IN_UNIVERSE_YEAR_OFFSET) +
+      '. Turn on "Shift dates to fleet reckoning" below if the report should read ' +
+      (maxYear + IN_UNIVERSE_YEAR_OFFSET) + ' throughout.</div>';
+  }
+  if (csvState.map.role < 0 && !csvState.defaultRole){
+    html += '<div class="banner-note">No role column was mapped, so every mission will ' +
+      'read as unspecified and the role breakdown will be empty. Pick a role below to ' +
+      'apply to all of these rows, or set one per mission later on the Log tab.</div>';
   }
   if (csvState.mergeMode === 'replace' && state.missions.length){
     html += '<div class="banner"><b>Replace will delete data</b>' +
@@ -1754,6 +1786,15 @@ function wireImport(){
       : synthHeaders((csvState.rows[0] || []).length);
     csvState.map = computeMap();
     renderImport();
+  });
+  on(byId('impShift'), 'click', function(){
+    csvState.shiftYears = !csvState.shiftYears;
+    byId('impShift').setAttribute('aria-checked', csvState.shiftYears ? 'true' : 'false');
+    renderPreview();
+  });
+  bindOther('impRole', 'impRoleOther', function(){
+    csvState.defaultRole = readOther('impRole', 'impRoleOther');
+    renderPreview();
   });
   on(byId('impDupes'), 'click', function(){
     csvState.skipDupes = !csvState.skipDupes;
@@ -2010,7 +2051,8 @@ function renderAnalytics(){
     tile('Active months', a.activeMonths + ' / ' + a.months.length) +
     tile('Avg per active month', fmt1(a.avgPerActiveMonth)) +
     tileSm('Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—') +
-    tileSm('Most flown role', a.byRole.length ? a.byRole[0].key : '—') +
+    tileSm('Most flown role',
+      (a.byRole.length && a.byRole[0].key !== UNSPEC) ? a.byRole[0].key : '—') +
     '</div>';
   if (a.durationSamples){
     html += '<div class="tiles">' +
@@ -2043,7 +2085,13 @@ function renderAnalytics(){
 
   html += '<h2 class="sec">By role</h2>';
   html += '<p class="sub">The station you played, counted across every logged mission.</p>';
-  html += '<div class="card">' + meters(a.byRole, a.total) + '</div>';
+  if (a.byRole.length === 1 && a.byRole[0].key === UNSPEC){
+    html += '<p class="empty">No role recorded on any mission. Map a role column when ' +
+            'you import, set a role for rows that have none, or add one per mission ' +
+            'on the Log tab.</p>';
+  } else {
+    html += '<div class="card">' + meters(a.byRole, a.total) + '</div>';
+  }
 
   html += '<h2 class="sec">By mission type</h2>';
   html += '<div class="card">' + meters(a.byType, a.total) + '</div>';
@@ -3166,6 +3214,19 @@ if (document.readyState === 'loading'){
         <span class="sw-lb" id="impDupesLb">Skip rows already logged</span>
         <button type="button" class="sw" id="impDupes" role="switch"
                 aria-checked="true" aria-labelledby="impDupesLb"></button>
+      </div>
+      <div class="sw-row">
+        <span class="sw-lb" id="impShiftLb">Shift dates to fleet reckoning (+156 years)</span>
+        <button type="button" class="sw" id="impShift" role="switch"
+                aria-checked="false" aria-labelledby="impShiftLb"></button>
+      </div>
+      <div class="field">
+        <label for="impRole">Role for rows with none</label>
+        <select id="impRole"></select>
+      </div>
+      <div class="field hidden">
+        <label for="impRoleOther">Role (typed)</label>
+        <input type="text" id="impRoleOther" placeholder="Type the role">
       </div>
 
       <h2 class="sec">Preview</h2>

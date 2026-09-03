@@ -171,7 +171,59 @@ async function paste(page, text) {
     await ctx.close();
   }
 
+  /* --- 8. the real deployments export: quoted fields, "Category" header,
+           no role column, real-world years -------------------------------- */
+  {
+    const { ctx, page, errs } = await fresh(browser);
+    const real = require('fs').readFileSync(
+      path.resolve(__dirname, 'fixture-deployments.csv'), 'utf8');
+    /* a role on Setup should seed the import's fallback role */
+    await page.selectOption('#suRole', 'Helm');
+    await paste(page, real);
+    await page.waitForSelector('#impConfig:not(.hidden)');
+    const map = await page.evaluate(() => ({
+      date: document.getElementById('map_date').selectedOptions[0].textContent,
+      ship: document.getElementById('map_ship').selectedOptions[0].textContent,
+      name: document.getElementById('map_name').selectedOptions[0].textContent,
+      type: document.getElementById('map_type').selectedOptions[0].textContent,
+      role: document.getElementById('map_role').value
+    }));
+    ok(map.date === 'Date', 'date column: ' + map.date);
+    ok(map.ship === 'Ship', 'ship column: ' + map.ship);
+    ok(map.name === 'Mission', 'mission column: ' + map.name);
+    ok(map.type === 'Category', '"Category" not mapped to mission type: ' + map.type);
+    ok(map.role === '-1', 'invented a role column: ' + map.role);
+    ok((await page.inputValue('#impRole')) === 'Helm', 'Setup role did not seed the import');
+    ok(/real-world reckoning/.test(await page.textContent('#impPreview')),
+       'no note about real-world dates');
+    ok((await page.textContent('#impGo')).trim() === 'Import 17 missions',
+       'row count: ' + (await page.textContent('#impGo')).trim());
+
+    /* fleet reckoning shift */
+    await page.click('#impShift');
+    await page.waitForTimeout(120);
+    ok(!/real-world reckoning/.test(await page.textContent('#impPreview')),
+       'note stayed after enabling the shift');
+    await page.click('#impGo');
+    await page.waitForSelector('#anBody svg');
+    const after = await page.evaluate(() => {
+      const m = JSON.parse(localStorage.getItem('ucn.missionAnalytics.v1')).missions;
+      return { n: m.length, first: m[0].date, last: m[m.length - 1].date, role: m[0].role };
+    });
+    ok(after.n === 17, 'imported ' + after.n);
+    ok(after.first === '2182-05-08', 'shift wrong, first date ' + after.first);
+    ok(after.last === '2182-09-01', 'shift wrong, last date ' + after.last);
+    ok(after.role === 'Helm', 'fallback role not applied: ' + after.role);
+    const tiles = await page.textContent('#anBody');
+    ok(/Both Ships/.test(tiles), '"Both Ships" value lost');
+    ok(!/Unspecified/.test(tiles), 'role fallback left Unspecified rows');
+    await page.evaluate(() => document.getElementById('anExport').click());
+    await page.waitForTimeout(2500);
+    ok(errs.length === 0, 'real csv errors: ' + errs.join('|'));
+    await ctx.close();
+  }
+
   await browser.close();
   if (fails.length) { console.error('FAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
-  console.log('PASS (7 edge cases)');
+  console.log('PASS (8 edge cases)');
 })();
