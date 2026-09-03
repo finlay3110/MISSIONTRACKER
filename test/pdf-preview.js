@@ -10,7 +10,7 @@ const fs = require('fs');
 const FILE = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '.smoke', 'pdf');
 
-const CSV = fs.readFileSync(path.resolve(__dirname, 'fixture.csv'), 'utf8');
+const CSV = fs.readFileSync(path.resolve(__dirname, 'fixture-deployments.csv'), 'utf8');
 
 const MOCK = () => {
   const S = 4;                                   // px per mm
@@ -92,6 +92,14 @@ const MOCK = () => {
     c.strokeStyle = this.draw; c.lineWidth = Math.max(0.6, this.lw * S); c.stroke();
     c.restore(); return this;
   };
+  Doc.prototype.lines = function (segs, x, y, scale, st, closed) {
+    const c = this.ctx(); const sx = (scale && scale[0]) || 1, sy = (scale && scale[1]) || 1;
+    c.save(); c.beginPath(); c.moveTo(x * S, y * S);
+    let px = x, py = y;
+    for (let i = 0; i < segs.length; i++) { px += segs[i][0] * sx; py += segs[i][1] * sy; c.lineTo(px * S, py * S); }
+    if (closed) c.closePath();
+    this._paint(c, st || 'S'); c.restore(); return this;
+  };
   Doc.prototype.addImage = function () { return this; };
   // Present so registerPdfFonts() succeeds and the report uses its real fonts;
   // the canvas draws with the same faces the page already has loaded.
@@ -131,18 +139,6 @@ const MOCK = () => {
   await page.click('#nav-setup');
   await page.fill('#suLoggedBy', 'Fin Harker');
   await page.selectOption('#suRank', 'Lt Cmdr');
-  await page.selectOption('#suRole', 'Helm');
-  await page.selectOption('#suShip', 'UCS Takanami');
-  await page.fill('#suMissionName', 'Operation Silent Harbour');
-  await page.selectOption('#suMissionType', 'Campaign');
-  await page.fill('#suCampaignMission', 'Longshore');
-  await page.fill('#suGroupName', 'Watch Three');
-  await page.selectOption('#suAuth', 'Engage with discretion');
-  await page.selectOption('#suThreat', 'Active (Red)');
-  await page.fill('#suBriefing',
-    'Relay station went dark at 0200. Expect a contested approach through the ' +
-    'shoals; the escort will not follow us past the picket line. Weapons free ' +
-    'only on the captain\'s word, and keep the shuttle bay clear for casualties.');
 
   await page.click('#nav-import');
   await page.click('button[aria-controls="impPasteBody"]');
@@ -151,6 +147,21 @@ const MOCK = () => {
   await page.waitForSelector('#impConfig:not(.hidden)');
   await page.click('#impGo');
   await page.waitForSelector('#tab-analytics.active');
+
+  /* roles and ratings, the two things the CSV does not carry */
+  await page.click('#nav-log');
+  const roles = ['Helm', 'Comms', 'Radar', 'Missiles', 'Navigation'];
+  for (let i = 0; i < 8; i++) {
+    await page.locator('.stars-host').nth(i).locator('[data-star="' + (2 + (i % 4)) + '"]').click();
+  }
+  for (let i = 0; i < 5; i++) {
+    await page.locator('[data-edit]').nth(i).click();
+    await page.waitForSelector('#msSave');
+    await page.selectOption('#msRole', roles[i]);
+    await page.click('#msSave');
+    await page.waitForSelector('#scrim.hidden', { state: 'attached' });
+  }
+  await page.click('#nav-analytics');
 
   await page.evaluate(MOCK);
   await page.evaluate(() => document.getElementById('anExport').click());

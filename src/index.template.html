@@ -254,6 +254,22 @@ textarea{ resize:vertical; min-height:70px; line-height:1.5; }
   color:var(--text); letter-spacing:0.03em; white-space:nowrap;
 }
 
+/* ---------- star rating ---------- */
+.stars{ display:flex; align-items:center; gap:5px; }
+.star-btn{ background:none; border:none; padding:2px; margin:0; cursor:pointer; line-height:0; }
+.star-ic{ width:23px; height:23px; display:block; }
+.stars-read .star-ic{ width:14px; height:14px; }
+.star-clear{
+  background:none; border:none; cursor:pointer; margin-left:6px; padding:2px 4px;
+  font-family:var(--font-display); font-size:9px; letter-spacing:0.07em;
+  text-transform:uppercase; color:var(--muted);
+}
+.rate-row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+.rate-row .k{
+  font-family:var(--font-display); font-size:9.5px; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--muted); flex:0 0 84px;
+}
+
 /* ---------- nav ---------- */
 nav{
   position:fixed; left:0; right:0; bottom:0; z-index:40;
@@ -485,13 +501,7 @@ function niceTicks(yMax){
    3. STATE + PERSISTENCE
    ===================================================================== */
 function blankSetup(){
-  return {
-    loggedBy:'', pronouns:'', rank:'', role:'', ship:'',
-    missionName:'', missionType:'',
-    campaignMission:'', groupName:'', groupLogo:'',
-    authorisation:'', threat:'', briefing:'',
-    date:'', time:''
-  };
+  return { loggedBy:'', rank:'', firstDeployment:'' };
 }
 function blankImport(){
   return { filename:'', importedAt:'', rowsRead:0, rowsImported:0, skipped:[] };
@@ -549,6 +559,11 @@ function mergeInto(base, src){
   }
   return base;
 }
+/* Ratings are optional: null means "not rated", never zero stars. */
+function normaliseRating(v){
+  var n = parseInt(v, 10);
+  return (isFinite(n) && n >= 1 && n <= 5) ? n : null;
+}
 function normaliseMissions(arr){
   var out = [], i, m;
   for (i = 0; i < arr.length; i++){
@@ -560,6 +575,7 @@ function normaliseMissions(arr){
       ship: clean(m.ship), role: clean(m.role), name: clean(m.name),
       type: clean(m.type), outcome: clean(m.outcome),
       duration: (typeof m.duration === 'number' && isFinite(m.duration)) ? m.duration : null,
+      rating: normaliseRating(m.rating),
       notes: clean(m.notes)
     });
   }
@@ -726,143 +742,78 @@ var ROLE_GROUPS = [
 function buildSetup(){
   var s = state.setup;
   writeOther('suRank', 'suRankOther', s.rank, RANKS, { other:true });
-  writeOther('suRole', 'suRoleOther', s.role, ROLE_GROUPS, { other:true });
-  writeOther('suShip', 'suShipOther', s.ship, SHIPS, { other:true });
-  writeOther('suPronouns', 'suPronounsOther', s.pronouns, PRONOUN_PRESETS, { other:true });
-  fillSelect(byId('suMissionType'), MISSION_TYPES, s.missionType, {});
-  fillSelect(byId('suAuth'), AUTHORISATIONS, s.authorisation, {});
-  fillSelect(byId('suThreat'), THREAT_LEVELS, s.threat, {});
-
   byId('suLoggedBy').value = s.loggedBy;
-  byId('suMissionName').value = s.missionName;
-  byId('suCampaignMission').value = s.campaignMission;
-  byId('suGroupName').value = s.groupName;
-  byId('suBriefing').value = s.briefing;
-  byId('suDate').value = s.date;
-  byId('suTime').value = s.time;
-
-  applyThreatTint();
-  applyCampaignVisibility();
-  renderGroupLogoPreview();
+  byId('suFirst').value = s.firstDeployment;
+  renderFirstDeploymentNote();
 }
 
-/* Threat level tints its own select so the posture is readable at a glance. */
-function applyThreatTint(){
-  var sel = byId('suThreat'), v = sel.value, cls = '';
-  if (v === 'Monitor (Green)') cls = ' threat-green';
-  else if (v === 'Alert (Orange)') cls = ' threat-orange';
-  else if (v === 'Active (Red)') cls = ' threat-red';
-  sel.className = cls ? cls.slice(1) : '';
+/* The first deployment is read off the log rather than typed. It only ever
+   fills an empty field, so a date the user set by hand is never overwritten. */
+function earliestMissionDate(){
+  var d = '', i;
+  for (i = 0; i < state.missions.length; i++){
+    if (!d || state.missions[i].date < d) d = state.missions[i].date;
+  }
+  return d;
 }
-/* "Campaign" is the only mission type with extra fields. */
-function applyCampaignVisibility(){
-  var isCampaign = byId('suMissionType').value === 'Campaign';
-  byId('campaignWrap').className = isCampaign ? '' : 'hidden';
+function applyDerivedFirstDeployment(){
+  var earliest = earliestMissionDate();
+  if (earliest && !byId('suFirst').value){
+    byId('suFirst').value = earliest;
+    state.setup.firstDeployment = earliest;
+    save();
+  }
+  renderFirstDeploymentNote();
 }
-function renderGroupLogoPreview(){
-  var box = byId('groupLogoPreview');
-  if (state.setup.groupLogo){
-    box.innerHTML =
-      '<div class="card" style="text-align:center">' +
-        '<img src="' + esc(state.setup.groupLogo) + '" alt="Group logo preview" ' +
-             'style="max-width:120px;max-height:120px;border-radius:9px">' +
-        '<button type="button" class="btn-quiet" id="clearLogo">Remove logo</button>' +
-      '</div>';
-    on(byId('clearLogo'), 'click', function(){
-      state.setup.groupLogo = '';
-      renderGroupLogoPreview(); save(); toast('Group logo removed');
-    });
+function renderFirstDeploymentNote(){
+  var earliest = earliestMissionDate();
+  var note = byId('suFirstNote');
+  if (!earliest){
+    note.textContent = 'Filled in from your CSV once you import one. You can also set it by hand.';
+  } else if (byId('suFirst').value === earliest){
+    note.textContent = 'Taken from your earliest logged mission (' + earliest + ').';
   } else {
-    box.innerHTML = '<p class="empty">No group logo attached.</p>';
+    note.textContent = 'Earliest logged mission is ' + earliest + '. Clear this field to use that.';
   }
 }
 
 function readSetup(){
   var s = state.setup;
   s.loggedBy = clean(byId('suLoggedBy').value);
-  s.pronouns = readOther('suPronouns', 'suPronounsOther');
   s.rank = readOther('suRank', 'suRankOther');
-  s.role = readOther('suRole', 'suRoleOther');
-  s.ship = readOther('suShip', 'suShipOther');
-  s.missionName = clean(byId('suMissionName').value);
-  s.missionType = byId('suMissionType').value;
-  s.campaignMission = clean(byId('suCampaignMission').value);
-  s.groupName = clean(byId('suGroupName').value);
-  s.authorisation = byId('suAuth').value;
-  s.threat = byId('suThreat').value;
-  s.briefing = byId('suBriefing').value;
-  s.date = byId('suDate').value;
-  s.time = byId('suTime').value;
+  s.firstDeployment = byId('suFirst').value;
 }
 function onSetupInput(){
   readSetup();
-  applyThreatTint();
-  applyCampaignVisibility();
+  renderFirstDeploymentNote();
   renderHeaderMeta();
   save();
 }
 
-/* Defaults are applied at startup and on "New session", and only ever fill a
-   field that is still empty - never overwrite what the user typed. */
-function applyDefaults(){
-  if (!byId('suDate').value) byId('suDate').value = todayInUniverseISO();
-  if (!byId('suTime').value) byId('suTime').value = nowLocalTime();
-  readSetup();
-  save();
-}
-
 function wireSetup(){
-  var ids = ['suLoggedBy','suMissionName','suCampaignMission','suGroupName',
-             'suBriefing','suDate','suTime','suPronounsOther','suRankOther',
-             'suRoleOther','suShipOther'];
-  ids.forEach(function(id){ on(byId(id), 'input', onSetupInput); });
-  ['suMissionType','suAuth','suThreat'].forEach(function(id){
-    on(byId(id), 'change', onSetupInput);
+  ['suLoggedBy', 'suRankOther', 'suFirst'].forEach(function(id){
+    on(byId(id), 'input', onSetupInput);
   });
   bindOther('suRank', 'suRankOther', onSetupInput);
-  bindOther('suRole', 'suRoleOther', onSetupInput);
-  bindOther('suShip', 'suShipOther', onSetupInput);
-  bindOther('suPronouns', 'suPronounsOther', onSetupInput);
-
-  on(byId('suGroupLogo'), 'change', function(e){
-    var f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!/^image\//.test(f.type)){ toast('That file is not an image'); return; }
-    if (f.size > 400 * 1024){
-      toast('Logo must be under 400 KB');
-      e.target.value = '';
-      return;
-    }
-    var fr = new FileReader();
-    fr.onload = function(){
-      state.setup.groupLogo = String(fr.result);
-      renderGroupLogoPreview(); save(); toast('Group logo attached');
-    };
-    fr.onerror = function(){ toast('Could not read that file'); };
-    fr.readAsDataURL(f);
-    e.target.value = '';
-  });
 
   on(byId('setupGo'), 'click', function(){
     onSetupInput();
     setTab('import');
-    toast('Session details saved');
   });
 
   on(byId('newSession'), 'click', function(ev){
-    confirmSheet('New session',
-      'This clears the mission log, the imported data and every setup field. ' +
-      'Export a PDF or a JSON backup first if you want to keep this one.',
+    confirmSheet('New record',
+      'This clears every logged mission and both setup fields. Export a PDF or a ' +
+      'JSON backup first if you want to keep this one.',
       'Clear everything', function(){
         state.setup = blankSetup();
         state.missions = [];
         state.imp = blankImport();
         state.ui.filters = { ship:'', role:'', type:'', year:'' };
         buildSetup();
-        applyDefaults();
         renderAll();
         setTab('setup');
-        toast('New session started');
+        toast('New record started');
       }, ev.currentTarget);
   });
 }
@@ -877,13 +828,10 @@ function renderHeaderMeta(){
     bits.push('<span class="chip' + (accent ? ' accent' : '') + '">' +
               '<span class="k">' + esc(k) + '</span> ' + esc(v) + '</span>');
   }
-  chip('Ship', s.ship, true);
-  chip('Role', s.role);
+  chip('Name', s.loggedBy, true);
   chip('Rank', s.rank);
-  chip('Mission', s.missionName);
-  if (s.missionType === 'Campaign' && s.groupName) chip('Group', s.groupName);
-  chip('Log', (s.date || '') + (s.time ? ' ' + s.time : ''));
-  bits.push('<span class="chip"><span class="k">Records</span> ' +
+  chip('First deployment', s.firstDeployment);
+  bits.push('<span class="chip"><span class="k">Missions</span> ' +
             state.missions.length + '</span>');
   var box = byId('hdMeta');
   box.innerHTML = bits.join('');
@@ -988,10 +936,12 @@ var COLUMN_GUESS = {
   type:     ['missiontype','type','category','kind','class'],
   outcome:  ['outcome','result','status','resolution','verdict'],
   duration: ['duration','minutes','mins','length','runtime','durationmins'],
+  rating: ['rating','stars','score','rating5','starrating','outof5'],
   notes:    ['notes','note','comment','comments','remarks','debrief','summary']
 };
 function guessColumns(headers){
-  var map = { date:-1, ship:-1, role:-1, name:-1, type:-1, outcome:-1, duration:-1, notes:-1 };
+  var map = { date:-1, ship:-1, role:-1, name:-1, type:-1, outcome:-1, duration:-1,
+              rating:-1, notes:-1 };
   var norm = headers.map(normHeader), key, i, j, cands;
   for (key in COLUMN_GUESS){
     if (!Object.prototype.hasOwnProperty.call(COLUMN_GUESS, key)) continue;
@@ -1020,16 +970,6 @@ function inferDateColumn(map, rows){
     if (hits > bestHits){ bestHits = hits; best = j; }
   }
   if (best >= 0 && bestHits >= Math.ceil(sample.length * 0.6)) map.date = best;
-  return map;
-}
-/* With no header row there is nothing to read but position, so assume the
-   order of the CSV template this tool hands out. The mapping selects show
-   the result, so a wrong guess is visible before anything is imported. */
-var TEMPLATE_ORDER = ['date','ship','role','name','type','outcome','duration','notes'];
-function positionalColumns(map, width){
-  for (var i = 0; i < TEMPLATE_ORDER.length && i < width; i++){
-    if (map[TEMPLATE_ORDER[i]] < 0 && !usedIndex(map, i)) map[TEMPLATE_ORDER[i]] = i;
-  }
   return map;
 }
 function usedIndex(map, i){
@@ -1081,6 +1021,17 @@ function parseDate(raw, mode){
   }
   return null;
 }
+/* Accepts 4, "4/5", or four star characters. Anything else is "not rated". */
+function parseRating(raw){
+  var s = clean(raw), m, stars = 0, i;
+  if (!s) return null;
+  m = s.match(/^([0-5])(?:\s*\/\s*5)?$/);
+  if (m) return (+m[1]) || null;
+  for (i = 0; i < s.length; i++){
+    if (s.charCodeAt(i) === 0x2605 || s.charAt(i) === '*') stars++;
+  }
+  return (stars >= 1 && stars <= 5) ? stars : null;
+}
 function parseDuration(raw){
   var s = clean(raw).toLowerCase(), m;
   if (!s) return null;
@@ -1098,14 +1049,8 @@ function parseDuration(raw){
    ===================================================================== */
 var csvState = {
   filename:'', rows:[], headers:[], hasHeader:true, delim:',',
-  map:null, dateMode:'auto', mergeMode:'append', skipDupes:true,
-  defaultRole:'', shiftYears:false
+  map:null, dateMode:'auto', mergeMode:'append', skipDupes:true
 };
-/* Real-world dates in, fleet reckoning out. Opt-in, because a file already
-   written in 2182 must not be shifted twice. */
-function shiftIso(iso){
-  return (parseInt(iso.slice(0, 4), 10) + IN_UNIVERSE_YEAR_OFFSET) + iso.slice(4);
-}
 
 function ingestText(text, filename){
   if (!trim(text)){ toast('That file looks empty'); return; }
@@ -1117,15 +1062,15 @@ function ingestText(text, filename){
   csvState.hasHeader = looksLikeHeader(rows[0]);
   csvState.headers = csvState.hasHeader ? rows[0].map(clean) : synthHeaders(rows[0].length);
   csvState.map = computeMap();
-  if (csvState.map.role < 0 && state.setup.role) csvState.defaultRole = state.setup.role;
   renderImport();
   toast('Read ' + rows.length + ' line' + (rows.length === 1 ? '' : 's'));
 }
+/* Names first, then the data for the date. Nothing is guessed from column
+   position: a file whose columns happen to sit in a different order would be
+   mislabelled without a word, and the labels end up on the report. */
 function computeMap(){
   var map = guessColumns(csvState.headers);
-  map = inferDateColumn(map, dataRows());
-  if (!csvState.hasHeader) map = positionalColumns(map, csvState.headers.length);
-  return map;
+  return inferDateColumn(map, dataRows());
 }
 function synthHeaders(n){
   var out = [], i;
@@ -1174,17 +1119,17 @@ function buildImport(){
           : 'No date in the mapped date column' });
       continue;
     }
-    if (csvState.shiftYears) iso = shiftIso(iso);
     dur = parseDuration(cellAt(r, csvState.map.duration));
     rec = {
       id: uid(),
       date: iso,
       ship: cellAt(r, csvState.map.ship),
-      role: cellAt(r, csvState.map.role) || csvState.defaultRole,
+      role: cellAt(r, csvState.map.role),
       name: cellAt(r, csvState.map.name),
       type: cellAt(r, csvState.map.type),
       outcome: cellAt(r, csvState.map.outcome),
       duration: dur,
+      rating: parseRating(cellAt(r, csvState.map.rating)),
       notes: cellAt(r, csvState.map.notes)
     };
     if (csvState.skipDupes){
@@ -1204,11 +1149,8 @@ function renderImport(){
   var loaded = csvState.rows.length > 0;
   byId('impHeader').setAttribute('aria-checked', csvState.hasHeader ? 'true' : 'false');
   byId('impDupes').setAttribute('aria-checked', csvState.skipDupes ? 'true' : 'false');
-  byId('impShift').setAttribute('aria-checked', csvState.shiftYears ? 'true' : 'false');
   byId('impDateMode').value = csvState.dateMode;
   byId('impMerge').value = csvState.mergeMode;
-  writeOther('impRole', 'impRoleOther', csvState.defaultRole, ROLE_GROUPS,
-             { other:true, placeholder:'— Leave blank —' });
   byId('impSourceState').innerHTML = loaded
     ? '<div class="card"><div class="card-head">' +
         '<span class="badge">' + esc(csvState.filename.slice(0, 28)) + '</span>' +
@@ -1236,13 +1178,17 @@ function renderImport(){
         'Discard', function(){
           csvState = { filename:'', rows:[], headers:[], hasHeader:true, delim:',',
                        map:null, dateMode: csvState.dateMode, mergeMode: csvState.mergeMode,
-                       skipDupes: csvState.skipDupes, defaultRole: csvState.defaultRole,
-                       shiftYears: csvState.shiftYears };
+                       skipDupes: csvState.skipDupes };
           renderImport(); toast('File discarded');
         }, ev.currentTarget);
     });
   }
   renderMapping();
+  /* Open the mapping unprompted when there is anything to confirm. */
+  if (csvState.map.date < 0 || !csvState.hasHeader){
+    byId('impColsTog').setAttribute('aria-expanded', 'true');
+    byId('impColsBody').className = 'coll-body open';
+  }
   renderPreview();
 }
 
@@ -1251,7 +1197,7 @@ function renderMapping(){
     ['date','Date', true], ['ship','Ship', false], ['role','Role', false],
     ['name','Mission name', false], ['type','Mission type', false],
     ['outcome','Outcome', false], ['duration','Duration (mins)', false],
-    ['notes','Notes', false]
+    ['rating','Rating (0-5)', false], ['notes','Notes', false]
   ];
   var html = '', i, f;
   for (i = 0; i < fields.length; i += 2){
@@ -1308,22 +1254,14 @@ function renderPreview(){
       ' ambiguous (day and month both 12 or under) and read as day-first. ' +
       'Set the date format below if that is wrong.</div>';
   }
-  var maxYear = 0, y;
-  for (var q = 0; q < res.missions.length; q++){
-    y = parseInt(res.missions[q].date.slice(0, 4), 10);
-    if (y > maxYear) maxYear = y;
+  if (!csvState.hasHeader){
+    html += '<div class="banner-note">This file has no header row, so only the date ' +
+      'column could be worked out from the data. Open Columns above and say which ' +
+      'column is which.</div>';
   }
-  if (maxYear && !csvState.shiftYears && maxYear <= new Date().getFullYear() + 1){
-    html += '<div class="banner-note">These dates are in real-world reckoning (latest ' +
-      maxYear + '), but the log stamp on the Setup tab is ' +
-      (new Date().getFullYear() + IN_UNIVERSE_YEAR_OFFSET) +
-      '. Turn on "Shift dates to fleet reckoning" below if the report should read ' +
-      (maxYear + IN_UNIVERSE_YEAR_OFFSET) + ' throughout.</div>';
-  }
-  if (csvState.map.role < 0 && !csvState.defaultRole){
-    html += '<div class="banner-note">No role column was mapped, so every mission will ' +
-      'read as unspecified and the role breakdown will be empty. Pick a role below to ' +
-      'apply to all of these rows, or set one per mission later on the Log tab.</div>';
+  if (csvState.map.role < 0){
+    html += '<div class="banner-note">No role column in this file, which is fine. ' +
+      'Add the ones you remember per mission on the Log tab.</div>';
   }
   if (csvState.mergeMode === 'replace' && state.missions.length){
     html += '<div class="banner"><b>Replace will delete data</b>' +
@@ -1373,12 +1311,13 @@ function commitImport(){
   state.missions.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
   state.imp = {
     filename: csvState.filename,
-    importedAt: todayInUniverseISO() + ' ' + nowLocalTime(),
+    importedAt: compiledStamp() + ' ' + nowLocalTime(),
     rowsRead: dataRows().length,
     rowsImported: res.missions.length,
     skipped: res.skipped.slice(0, 200)
   };
   save();
+  applyDerivedFirstDeployment();
   renderAll();
   setTab('analytics');
   toast('Imported ' + res.missions.length + ' mission' + (res.missions.length === 1 ? '' : 's'));
@@ -1413,15 +1352,6 @@ function wireImport(){
       : synthHeaders((csvState.rows[0] || []).length);
     csvState.map = computeMap();
     renderImport();
-  });
-  on(byId('impShift'), 'click', function(){
-    csvState.shiftYears = !csvState.shiftYears;
-    byId('impShift').setAttribute('aria-checked', csvState.shiftYears ? 'true' : 'false');
-    renderPreview();
-  });
-  bindOther('impRole', 'impRoleOther', function(){
-    csvState.defaultRole = readOther('impRole', 'impRoleOther');
-    renderPreview();
   });
   on(byId('impDupes'), 'click', function(){
     csvState.skipDupes = !csvState.skipDupes;
@@ -1487,10 +1417,11 @@ function distinctYears(){
 function aggregate(list){
   var a = {
     total: list.length, months: [], counts: [], cumulative: [],
-    byShip: countBy(list, 'ship'), byRole: countBy(list, 'role'),
+    byShip: countBy(list, 'ship'), byRole: countBy(list, 'role'), namedRoles: [],
     byType: countBy(list, 'type'), byOutcome: countBy(list, 'outcome'),
     firstDate:'', lastDate:'', busiest:null, activeMonths:0,
-    avgPerActiveMonth:0, avgPerMonth:0, totalMinutes:0, durationSamples:0
+    avgPerActiveMonth:0, avgPerMonth:0, totalMinutes:0, durationSamples:0,
+    ratingCounts:[0,0,0,0,0], ratedCount:0, ratingTotal:0, avgRating:0
   };
   if (!list.length) return a;
   var dates = list.map(function(m){ return m.date; }).sort();
@@ -1505,7 +1436,16 @@ function aggregate(list){
       a.totalMinutes += list[i].duration;
       a.durationSamples++;
     }
+    if (list[i].rating >= 1 && list[i].rating <= 5){
+      a.ratingCounts[list[i].rating - 1]++;
+      a.ratedCount++;
+      a.ratingTotal += list[i].rating;
+    }
   }
+  if (a.ratedCount) a.avgRating = a.ratingTotal / a.ratedCount;
+  /* Headline role figures ignore the missions with no role on them; the role
+     breakdown still shows them, so the gap stays visible. */
+  a.namedRoles = a.byRole.filter(function(r){ return r.key !== UNSPEC; });
   a.months = monthSpan(monthKeyOf(a.firstDate), monthKeyOf(a.lastDate));
   var run = 0;
   for (i = 0; i < a.months.length; i++){
@@ -1620,10 +1560,48 @@ function svgLine(labels, values, aria){
   s += xEndLabels(x0, w, H - 8, labels[0] || '', labels[labels.length - 1] || '', n < 2);
   return s + '</svg>';
 }
+/* No embedded font carries U+2605, and jsPDF would drop it without a word, so
+   stars are drawn as shapes in both places: SVG here, vectors in the PDF. */
+var STAR_PATH = 'M12 2.4l2.9 6.2 6.8.85-5 4.65 1.3 6.7L12 17.5l-6 3.3 1.3-6.7-5-4.65 6.8-.85z';
+function starSvg(on){
+  return '<svg class="star-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path d="' + STAR_PATH + '" fill="' + (on ? '#DD7A2B' : 'none') + '" stroke="' +
+    (on ? '#DD7A2B' : '#3a4a78') + '" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+}
+function starsRead(value){
+  var out = '<span class="stars stars-read" role="img" aria-label="' +
+            (value ? value + ' out of 5' : 'Not rated') + '">', i;
+  for (i = 1; i <= 5; i++) out += starSvg(i <= value);
+  return out + '</span>';
+}
+function starsEdit(value, attr){
+  var out = '<span class="stars" role="radiogroup" ' + attr + '>', i;
+  for (i = 1; i <= 5; i++){
+    out += '<button type="button" class="star-btn" role="radio" data-star="' + i + '" ' +
+           'aria-checked="' + (i === value ? 'true' : 'false') + '" ' +
+           'aria-label="' + i + ' out of 5">' + starSvg(i <= value) + '</button>';
+  }
+  if (value) out += '<button type="button" class="star-clear" data-star="0">Clear</button>';
+  return out + '</span>';
+}
+/* Rebuilds one rating row in place, so tapping a star on a long log does not
+   re-render the list and lose the scroll position. */
+function wireStars(box, get, set){
+  qsa('[data-star]', box).forEach(function(btn){
+    on(btn, 'click', function(){
+      var v = parseInt(btn.getAttribute('data-star'), 10);
+      set(v === get() ? null : (v || null));
+      box.innerHTML = starsEdit(get(), box.getAttribute('data-attr') || '');
+      wireStars(box, get, set);
+    });
+  });
+}
 function meters(rows, total){
   if (!rows.length) return '<p class="empty">None recorded.</p>';
+  var peak = 0, q;
+  for (q = 0; q < rows.length; q++) peak = Math.max(peak, rows[q].n);
   var s = '', i, pct;
-  var top = rows[0].n || 1;
+  var top = peak || 1;
   for (i = 0; i < rows.length; i++){
     pct = Math.round(rows[i].n / top * 100);
     s += '<div class="meter">' +
@@ -1678,9 +1656,14 @@ function renderAnalytics(){
     tile('Active months', a.activeMonths + ' / ' + a.months.length) +
     tile('Avg per active month', fmt1(a.avgPerActiveMonth)) +
     tileSm('Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—') +
-    tileSm('Most flown role',
-      (a.byRole.length && a.byRole[0].key !== UNSPEC) ? a.byRole[0].key : '—') +
+    tileSm('Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—') +
     '</div>';
+  if (a.ratedCount){
+    html += '<div class="tiles">' +
+      tile('Average rating', fmt1(a.avgRating) + ' / 5', 'accent') +
+      tile('Missions rated', a.ratedCount + ' / ' + a.total) +
+      '</div>';
+  }
   if (a.durationSamples){
     html += '<div class="tiles">' +
       tileSm('Time on station', hoursMins(a.totalMinutes)) +
@@ -1722,6 +1705,20 @@ function renderAnalytics(){
 
   html += '<h2 class="sec">By mission type</h2>';
   html += '<div class="card">' + meters(a.byType, a.total) + '</div>';
+
+  html += '<h2 class="sec">Ratings</h2>';
+  if (!a.ratedCount){
+    html += '<p class="empty">No missions rated yet. Tap the stars on any mission ' +
+            'on the Log tab.</p>';
+  } else {
+    var rrows = [], ri;
+    for (ri = 5; ri >= 1; ri--){
+      rrows.push({ key: ri + (ri === 1 ? ' star' : ' stars'), n: a.ratingCounts[ri - 1] });
+    }
+    html += '<p class="sub">Average ' + fmt1(a.avgRating) + ' out of 5 across ' +
+            a.ratedCount + ' rated mission' + (a.ratedCount === 1 ? '' : 's') + '.</p>';
+    html += '<div class="card">' + meters(rrows, a.ratedCount) + '</div>';
+  }
 
   if (a.byOutcome.length && !(a.byOutcome.length === 1 && a.byOutcome[0].key === UNSPEC)){
     html += '<h2 class="sec">By outcome</h2>';
@@ -1777,10 +1774,26 @@ function renderLog(){
       (m.outcome ? kvRow('Outcome', m.outcome) : '') +
       (m.duration ? kvRow('Duration', hoursMins(m.duration)) : '') +
       (m.notes ? kvRow('Notes', m.notes) : '') +
+      '<div class="rate-row"><span class="k">Rating</span>' +
+        '<span class="stars-host" data-mission="' + esc(m.id) + '"></span></div>' +
       '<button type="button" class="btn-quiet" data-edit="' + esc(m.id) + '">Edit</button>' +
       '</div>';
   }
   box.innerHTML = html;
+  qsa('.stars-host', box).forEach(function(host){
+    var id = host.getAttribute('data-mission');
+    host.setAttribute('data-attr', 'aria-label="Rating"');
+    host.innerHTML = starsEdit((missionById(id) || {}).rating, 'aria-label="Rating"');
+    wireStars(host,
+      function(){ var m = missionById(id); return m ? m.rating : null; },
+      function(v){
+        var m = missionById(id);
+        if (!m) return;
+        m.rating = v;
+        save();
+        renderHeaderMeta();
+      });
+  });
   qsa('[data-del]', box).forEach(function(b){
     on(b, 'click', function(ev){
       var m = missionById(b.getAttribute('data-del'));
@@ -1807,8 +1820,8 @@ function openMissionSheet(id, trigger){
   var m = id ? missionById(id) : null;
   var isNew = !m;
   if (!m){
-    m = { id:uid(), date:todayInUniverseISO(), ship:state.setup.ship, role:state.setup.role,
-          name:'', type:'', outcome:'', duration:null, notes:'' };
+    m = { id:uid(), date:earliestMissionDate() || todayInUniverseISO(), ship:'', role:'',
+          name:'', type:'', outcome:'', duration:null, rating:null, notes:'' };
   }
   var body =
     '<div class="field"><label for="msDate">Date</label>' +
@@ -1829,6 +1842,8 @@ function openMissionSheet(id, trigger){
         '<input type="number" id="msDuration" min="0" step="5" value="' +
         (m.duration ? esc(String(m.duration)) : '') + '"></div>' +
     '</div>' +
+    '<div class="field"><label id="msRatingLb">Rating (optional)</label>' +
+      '<span class="stars-host" id="msStars"></span></div>' +
     '<div class="field"><label for="msOutcome">Outcome</label>' +
       '<input type="text" id="msOutcome" value="' + esc(m.outcome) + '" placeholder="Objective met"></div>' +
     '<div class="field"><label for="msNotes">Notes</label>' +
@@ -1843,6 +1858,11 @@ function openMissionSheet(id, trigger){
   fillSelect(byId('msType'), MISSION_TYPES, m.type, {});
   bindOther('msShip', 'msShipOther');
   bindOther('msRole', 'msRoleOther');
+  var sheetRating = m.rating;
+  var host = byId('msStars');
+  host.setAttribute('data-attr', 'aria-labelledby="msRatingLb"');
+  host.innerHTML = starsEdit(sheetRating, 'aria-labelledby="msRatingLb"');
+  wireStars(host, function(){ return sheetRating; }, function(v){ sheetRating = v; });
 
   on(byId('msCancel'), 'click', closeSheet);
   on(byId('msSave'), 'click', function(){
@@ -1857,6 +1877,7 @@ function openMissionSheet(id, trigger){
       type: byId('msType').value,
       outcome: clean(byId('msOutcome').value),
       duration: (isFinite(dur) && dur > 0) ? dur : null,
+      rating: sheetRating,
       notes: clean(byId('msNotes').value)
     };
     if (isNew) state.missions.push(rec);
@@ -1876,10 +1897,10 @@ function wireLog(){
    14. MORE TAB  (backups, templates, licences, the fan-made disclaimer)
    ===================================================================== */
 var CSV_TEMPLATE =
-  'date,ship,role,mission,type,outcome,duration,notes\n' +
-  '2182-01-14,UCS Takanami,Helm,Operation Silent Harbour,Frontline,Objective met,90,Lost port thruster on approach\n' +
-  '2182-02-03,UCS Havock,Comms,Ridgeline Parley,Diplomacy,Stood down,75,\n' +
-  '2182-02-19,UCS Takanami,Missiles,Deep Survey 7,Exploration,Objective met,120,\n';
+  'Date,Ship,Category,Mission,Role,Rating\n' +
+  '2026-08-20,UCS Takanami,Exploration,OPERATION SARGASSO,Helm,5\n' +
+  '2026-08-06,UCS Havock,Frontline,CELL 06-05,,4\n' +
+  '2026-08-01,UCS Havock,Diplomacy,OPERATION REDENTOR,Comms,\n';
 
 function downloadBlob(text, filename, mime){
   try {
@@ -1904,7 +1925,7 @@ function renderStorageBanner(){
 }
 function wireMore(){
   on(byId('mrTemplate'), 'click', function(){
-    if (downloadBlob(CSV_TEMPLATE, 'ucn-mission-template.csv', 'text/csv')) {
+    if (downloadBlob(CSV_TEMPLATE, 'ucn-deployments-template.csv', 'text/csv')) {
       toast('Template downloaded');
     } else toast('Download blocked by this browser');
   });
@@ -1927,7 +1948,7 @@ function wireMore(){
       state.setup = mergeInto(blankSetup(), d.setup || {});
       state.imp = mergeInto(blankImport(), d.imp || {});
       state.missions = normaliseMissions(d.missions);
-      save(); buildSetup(); renderAll(); setTab('analytics');
+      save(); buildSetup(); applyDerivedFirstDeployment(); renderAll(); setTab('analytics');
       toast('Backup restored');
     };
     fr.onerror = function(){ toast('Could not read that file'); };
@@ -1953,7 +1974,7 @@ function wireMore(){
         state.missions = [];
         state.imp = blankImport();
         state.ui.filters = { ship:'', role:'', type:'', year:'' };
-        buildSetup(); applyDefaults(); renderAll(); setTab('setup');
+        buildSetup(); renderAll(); setTab('setup');
         toast('Everything erased');
       }, ev.currentTarget);
   });
@@ -2271,7 +2292,9 @@ function pdfLineChart(doc, labels, values, height){
 function pdfCatBars(doc, rows, total){
   if (!rows.length){ pdfEmpty(doc); return; }
   var labelW = 44, trackX = PDF_ML + labelW + 2, trackW = 96, rowH = 6.4;
-  var top = rows[0].n || 1, i;
+  var top = 0, i;
+  for (i = 0; i < rows.length; i++) top = Math.max(top, rows[i].n);
+  top = top || 1;
   for (i = 0; i < rows.length; i++){
     pdfEnsureSpace(doc, rowH);
     doc.setFont(pdfBodyFont(), 'normal');
@@ -2292,6 +2315,34 @@ function pdfCatBars(doc, rows, total){
   pdfCursorY += 3;
 }
 
+/* U+2605 is in none of the embedded fonts, and jsPDF omits a missing glyph
+   silently, so print stars are drawn rather than typed. */
+function pdfStar(doc, cx, cy, r, filled){
+  var pts = [], segs = [], i, ang, rad;
+  for (i = 0; i < 10; i++){
+    ang = -Math.PI / 2 + i * Math.PI / 5;
+    rad = (i % 2 === 0) ? r : r * 0.42;
+    pts.push([cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad]);
+  }
+  for (i = 1; i < pts.length; i++){
+    segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
+  }
+  setC(doc, 'f', C_ORANGE);
+  setC(doc, 'd', C_MUTED);
+  doc.setLineWidth(0.25);
+  doc.lines(segs, pts[0][0], pts[0][1], [1, 1], filled ? 'F' : 'S', true);
+}
+function pdfStarRow(doc, value, label){
+  pdfEnsureSpace(doc, 9);
+  var r = 2.4, gap = 6.2, x = PDF_ML + r, i;
+  for (i = 1; i <= 5; i++) pdfStar(doc, x + gap * (i - 1), pdfCursorY + r + 1, r, i <= value);
+  doc.setFont(pdfBodyFont(), 'normal');
+  doc.setFontSize(10);
+  setC(doc, 't', C_TEXT);
+  doc.text(pdfSafe(label), PDF_ML + gap * 5 + 2, pdfCursorY + r + 2.4);
+  pdfCursorY += 9;
+}
+
 /* ---- cover, sections, contents --------------------------------------- */
 function pdfInsignia(doc, cx, cy, r){
   setC(doc, 'd', C_NAVY);
@@ -2309,14 +2360,7 @@ function pdfInsignia(doc, cx, cy, r){
 function pdfCover(doc, meta){
   pdfDrawFrame(doc);
   var cx = PDF_W / 2;
-  var drew = false;
-  if (state.setup.missionType === 'Campaign' && state.setup.groupLogo){
-    try {
-      doc.addImage(state.setup.groupLogo, cx - 16, 42 - 16, 32, 32);
-      drew = true;
-    } catch (e){ drew = false; }
-  }
-  if (!drew) pdfInsignia(doc, cx, 42, 16);
+  pdfInsignia(doc, cx, 42, 16);
 
   doc.setFont(pdfHeadingFont(), 'bold');
   doc.setFontSize(21);
@@ -2326,7 +2370,7 @@ function pdfCover(doc, meta){
   doc.setFont(pdfHeadingFont(), 'bold');
   doc.setFontSize(9);
   setC(doc, 't', C_ORANGE);
-  doc.text('M I S S I O N   A N A L Y T I C S', cx, 91, { align:'center' });
+  doc.text('S E R V I C E   R E C O R D', cx, 91, { align:'center' });
 
   var tblW = 120, keyW = 40, valW = tblW - keyW, rowH = 8.5;
   var x = (PDF_W - tblW) / 2, y = 108, i;
@@ -2400,6 +2444,18 @@ function pdfFooters(doc){
 }
 
 /* ---- the document ---------------------------------------------------- */
+/* The log is whatever reckoning the CSV used. Stamping a 2182 compile date on
+   a record of 2026 missions just looks wrong, so the stamp follows the data and
+   only falls back to fleet reckoning when there is none. */
+function compiledStamp(){
+  var n = new Date(), realY = n.getFullYear(), latest = '', i, y;
+  for (i = 0; i < state.missions.length; i++){
+    if (state.missions[i].date > latest) latest = state.missions[i].date;
+  }
+  y = (latest && parseInt(latest.slice(0, 4), 10) <= realY + 1)
+      ? realY : realY + IN_UNIVERSE_YEAR_OFFSET;
+  return y + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+}
 function filterSummary(){
   var f = state.ui.filters, bits = [];
   if (f.ship) bits.push('ship: ' + f.ship);
@@ -2438,23 +2494,16 @@ function buildPdf(list){
   var toc = [];
 
   var meta = [
-    ['Logged by', s.loggedBy + (s.pronouns ? ' (' + s.pronouns + ')' : '')],
+    ['Name', s.loggedBy],
     ['Rank', s.rank],
-    ['Role', s.role],
-    ['Ship', s.ship],
-    ['Mission', s.missionName],
-    ['Mission type', s.missionType]
+    ['First deployment', s.firstDeployment || a.firstDate],
+    ['Missions', String(a.total)],
+    ['Ships', a.byShip.map(function(r){ return r.key; }).join(', ')],
+    ['Period', a.total ? monthLabel(monthKeyOf(a.firstDate)) + ' – ' +
+                         monthLabel(monthKeyOf(a.lastDate)) : '—']
   ];
-  if (s.missionType === 'Campaign'){
-    meta.push(['Campaign', s.campaignMission]);
-    meta.push(['Group', s.groupName]);
-  }
-  meta.push(['Authorisation', s.authorisation]);
-  meta.push(['Threat level', s.threat]);
-  meta.push(['Compiled', (s.date || todayInUniverseISO()) + (s.time ? ' · ' + s.time : '')]);
-  meta.push(['Missions', String(a.total)]);
-  meta.push(['Period', a.total ? monthLabel(monthKeyOf(a.firstDate)) + ' – ' +
-                                 monthLabel(monthKeyOf(a.lastDate)) : '—']);
+  if (a.ratedCount) meta.push(['Average rating', fmt1(a.avgRating) + ' / 5']);
+  meta.push(['Compiled', compiledStamp()]);
 
   pdfCover(doc, meta);
   doc.addPage();                 /* page 2 is reserved for the contents */
@@ -2476,8 +2525,8 @@ function buildPdf(list){
     ['Average per active month', fmt1(a.avgPerActiveMonth)],
     ['Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—'],
     ['Ships served on', String(a.byShip.length)],
-    ['Distinct roles played', String(a.byRole.length)],
-    ['Most flown role', a.byRole.length ? a.byRole[0].key : '—']
+    ['Distinct roles played', String(a.namedRoles.length)],
+    ['Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—']
   ];
   if (a.durationSamples){
     summaryRows.push(['Time on station', hoursMins(a.totalMinutes) +
@@ -2486,6 +2535,17 @@ function buildPdf(list){
       hoursMins(Math.round(a.totalMinutes / a.durationSamples))]);
   }
   pdfTable(doc, ['Measure', 'Value'], summaryRows, [92, 82]);
+  if (a.ratedCount){
+    pdfSubHeading(doc, 'Ratings');
+    pdfStarRow(doc, Math.round(a.avgRating),
+      fmt1(a.avgRating) + ' out of 5, across ' + a.ratedCount + ' rated mission' +
+      (a.ratedCount === 1 ? '' : 's'));
+    var rrows = [], ri;
+    for (ri = 5; ri >= 1; ri--){
+      rrows.push({ key: ri + (ri === 1 ? ' star' : ' stars'), n: a.ratingCounts[ri - 1] });
+    }
+    pdfCatBars(doc, rrows, a.ratedCount);
+  }
   pdfSubHeading(doc, 'Filters applied');
   pdfParagraph(doc, filterSummary(), { fontSize:9.5, color:C_MUTED, italic:true });
 
@@ -2559,10 +2619,10 @@ function buildPdf(list){
     return x.date < y.date ? -1 : (x.date > y.date ? 1 : 0);
   }).map(function(m){
     return [m.date, labelOf(m.ship), labelOf(m.role), m.name || '—',
-            m.type || '—', m.outcome || '—'];
+            m.type || '—', m.rating ? (m.rating + ' / 5') : '—'];
   });
-  pdfTable(doc, ['Date', 'Ship', 'Role', 'Mission', 'Type', 'Outcome'],
-           logRows, [24, 30, 36, 33, 24, 27]);
+  pdfTable(doc, ['Date', 'Ship', 'Role', 'Mission', 'Type', 'Rating'],
+           logRows, [24, 30, 34, 41, 26, 19]);
 
   var noted = list.filter(function(m){ return !!m.notes; });
   if (noted.length){
@@ -2573,18 +2633,7 @@ function buildPdf(list){
     }
   }
 
-  /* --- 8. Briefing --- */
-  pdfSectionStart(doc, 'Briefing', toc);
-  pdfTable(doc, ['Field', 'Value'], [
-    ['Authorisation', s.authorisation || '—'],
-    ['Threat level', s.threat || '—'],
-    ['Mission type', s.missionType || '—'],
-    ['Campaign mission', s.campaignMission || '—'],
-    ['Group', s.groupName || '—']
-  ], [64, 110]);
-  pdfBlockNote(doc, 'Briefing notes', s.briefing);
-
-  /* --- 9. Data source --- */
+  /* --- 8. Data source --- */
   pdfSectionStart(doc, 'Data Source', toc);
   pdfParagraph(doc,
     'Every figure in this report is derived from the records below. Imported ' +
@@ -2612,8 +2661,7 @@ function buildPdf(list){
   pdfDrawToc(doc, toc);
   pdfFooters(doc);
 
-  var stamp = (s.date || todayInUniverseISO()).replace(/-/g, '');
-  doc.save('UCN-Mission-Analytics-' + stamp + '.pdf');
+  doc.save('UCN-Service-Record-' + compiledStamp().replace(/-/g, '') + '.pdf');
 }
 
 /* =====================================================================
@@ -2632,7 +2680,7 @@ function init(){
   wireMore();
   wireCollapsibles();
   wireSheetGlobals();
-  applyDefaults();
+  applyDerivedFirstDeployment();
   renderImport();
   renderAll();
   setTab(state.ui.tab);
@@ -2678,114 +2726,31 @@ if (document.readyState === 'loading'){
   <section class="panel" id="tab-setup" role="tabpanel" aria-labelledby="nav-setup">
     <div id="setupBanner"></div>
 
-    <h2 class="sec">Who is logging</h2>
-    <p class="sub">Set once at the start of the session. It heads the exported report.</p>
+    <h2 class="sec">Service record</h2>
+    <p class="sub">Your name and rank. The deployment date fills itself in from the CSV.</p>
 
     <div class="field">
-      <label for="suLoggedBy">Logged by</label>
+      <label for="suLoggedBy">Name or callsign</label>
       <input type="text" id="suLoggedBy" placeholder="Name or callsign" autocomplete="off">
     </div>
 
-    <div class="row2">
-      <div class="field">
-        <label for="suRank">Rank</label>
-        <select id="suRank"></select>
-      </div>
-      <div class="field">
-        <label for="suRole">Role</label>
-        <select id="suRole"></select>
-      </div>
+    <div class="field">
+      <label for="suRank">Rank</label>
+      <select id="suRank"></select>
     </div>
     <div class="field hidden">
       <label for="suRankOther">Rank (typed)</label>
       <input type="text" id="suRankOther" placeholder="Type the rank">
     </div>
-    <div class="field hidden">
-      <label for="suRoleOther">Role (typed)</label>
-      <input type="text" id="suRoleOther" placeholder="Type the role">
-    </div>
-
-    <button type="button" class="coll-tog" aria-expanded="false" aria-controls="suOptional">
-      <span>Optional — pronouns</span><span class="chev">▾</span>
-    </button>
-    <div class="coll-body" id="suOptional">
-      <div class="field">
-        <label for="suPronouns">Pronouns</label>
-        <select id="suPronouns"></select>
-      </div>
-      <div class="field hidden">
-        <label for="suPronounsOther">Pronouns (typed)</label>
-        <input type="text" id="suPronounsOther" placeholder="Type your pronouns">
-      </div>
-    </div>
-
-    <h2 class="sec">The sortie</h2>
 
     <div class="field">
-      <label for="suShip">Ship</label>
-      <select id="suShip"></select>
+      <label for="suFirst">Date of first deployment</label>
+      <input type="date" id="suFirst">
     </div>
-    <div class="field hidden">
-      <label for="suShipOther">Ship name</label>
-      <input type="text" id="suShipOther" placeholder="Type the ship name">
-    </div>
+    <p class="sub" id="suFirstNote"></p>
 
-    <div class="field">
-      <label for="suMissionName">Mission name</label>
-      <input type="text" id="suMissionName" placeholder="Operation Silent Harbour">
-    </div>
-
-    <div class="field">
-      <label for="suMissionType">Mission type</label>
-      <select id="suMissionType"></select>
-    </div>
-
-    <div id="campaignWrap" class="hidden">
-      <div class="field">
-        <label for="suCampaignMission">Campaign mission</label>
-        <input type="text" id="suCampaignMission" placeholder="Name of the campaign mission">
-      </div>
-      <div class="field">
-        <label for="suGroupName">Group name</label>
-        <input type="text" id="suGroupName" placeholder="Name of the group">
-      </div>
-      <label class="filelabel btn-add" for="suGroupLogo">＋ Attach group logo</label>
-      <input type="file" id="suGroupLogo" accept="image/*" class="sr">
-      <div id="groupLogoPreview"></div>
-    </div>
-
-    <h2 class="sec">Briefing</h2>
-    <p class="sub">Authorisation, posture, and anything the crew was told.</p>
-
-    <div class="field">
-      <label for="suAuth">Authorisation</label>
-      <select id="suAuth"></select>
-    </div>
-    <div class="field">
-      <label for="suThreat">Threat level</label>
-      <select id="suThreat"></select>
-    </div>
-    <div class="field">
-      <label for="suBriefing">Briefing notes</label>
-      <textarea id="suBriefing" rows="5"
-        placeholder="Free text. Reproduced in the report exactly as written."></textarea>
-    </div>
-
-    <h2 class="sec">Log stamp</h2>
-    <div class="row2">
-      <div class="field">
-        <label for="suDate">Date</label>
-        <input type="date" id="suDate">
-      </div>
-      <div class="field">
-        <label for="suTime">Time</label>
-        <input type="time" id="suTime">
-      </div>
-    </div>
-    <p class="sub">Date defaults to today in fleet reckoning, time to now, local.</p>
-
-    <button type="button" class="btn-primary" id="setupGo">Save and go to import</button>
-    <button type="button" class="btn-quiet" id="newSession">Start a new session</button>
+    <button type="button" class="btn-primary" id="setupGo">Import a deployment CSV</button>
+    <button type="button" class="btn-quiet" id="newSession">Start a new record</button>
   </section>
 
   <!-- ============================ IMPORT =========================== -->
@@ -2803,17 +2768,25 @@ if (document.readyState === 'loading'){
     <div class="coll-body" id="impPasteBody">
       <div class="field">
         <label for="impPaste">CSV text</label>
-        <textarea id="impPaste" rows="6" placeholder="date,ship,role,mission,type"></textarea>
+        <textarea id="impPaste" rows="6" placeholder="date,ship,mission,category"></textarea>
       </div>
       <button type="button" class="btn-quiet" id="impPasteGo">Read pasted text</button>
     </div>
 
     <div id="impConfig" class="hidden">
-      <h2 class="sec">Columns</h2>
-      <p class="sub">Guessed from the header row. Change anything that is wrong.</p>
-      <div id="impMapping"></div>
+      <button type="button" class="coll-tog" id="impColsTog" aria-expanded="false"
+              aria-controls="impColsBody">
+        <span>Columns</span><span class="chev">▾</span>
+      </button>
+      <div class="coll-body" id="impColsBody">
+        <p class="sub">Guessed from the header row. Change anything that is wrong.</p>
+        <div id="impMapping"></div>
+      </div>
 
-      <h2 class="sec">Reading options</h2>
+      <button type="button" class="coll-tog" aria-expanded="false" aria-controls="impOptsBody">
+        <span>Reading options</span><span class="chev">▾</span>
+      </button>
+      <div class="coll-body" id="impOptsBody">
       <div class="row2">
         <div class="field">
           <label for="impDateMode">Date format</label>
@@ -2842,18 +2815,6 @@ if (document.readyState === 'loading'){
         <button type="button" class="sw" id="impDupes" role="switch"
                 aria-checked="true" aria-labelledby="impDupesLb"></button>
       </div>
-      <div class="sw-row">
-        <span class="sw-lb" id="impShiftLb">Shift dates to fleet reckoning (+156 years)</span>
-        <button type="button" class="sw" id="impShift" role="switch"
-                aria-checked="false" aria-labelledby="impShiftLb"></button>
-      </div>
-      <div class="field">
-        <label for="impRole">Role for rows with none</label>
-        <select id="impRole"></select>
-      </div>
-      <div class="field hidden">
-        <label for="impRoleOther">Role (typed)</label>
-        <input type="text" id="impRoleOther" placeholder="Type the role">
       </div>
 
       <h2 class="sec">Preview</h2>
@@ -2865,12 +2826,13 @@ if (document.readyState === 'loading'){
       <span>What the file should look like</span><span class="chev">▾</span>
     </button>
     <div class="coll-body" id="impHelpBody">
-      <p class="legal">Only the date column is required. Everything else is optional and
-        can be left out or mapped to nothing. Dates may be ISO, day-first, month-first,
-        or written out (14 Jan 2182). Duration accepts minutes, 1h 30m, or 1:30.</p>
-      <div class="pre">date,ship,role,mission,type,outcome,duration,notes
-2182-01-14,UCS Takanami,Helm,Silent Harbour,Frontline,Objective met,90,
-2182-02-03,UCS Havock,Comms,Ridgeline Parley,Diplomacy,Stood down,75,</div>
+      <p class="legal">Only the date column is required. Everything else is optional.
+        A deployment export with Date, Ship, Category and Mission columns is read as-is.
+        Dates may be ISO, day-first, month-first, or written out (14 Jan 2182).
+        Roles and ratings are yours to add afterwards on the Log tab.</p>
+      <div class="pre">Date,Ship,Category,Mission
+2026-08-20,UCS Takanami,Exploration,OPERATION SARGASSO
+2026-08-06,UCS Havock,Frontline,CELL 06-05</div>
     </div>
   </section>
 

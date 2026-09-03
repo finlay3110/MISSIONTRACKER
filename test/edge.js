@@ -20,6 +20,10 @@ async function fresh(browser, initScript) {
   ]));
   return { ctx, page, errs };
 }
+async function openOptions(page) {
+  const tog = 'button[aria-controls="impOptsBody"]';
+  if ((await page.getAttribute(tog, 'aria-expanded')) !== 'true') await page.click(tog);
+}
 async function paste(page, text) {
   await page.click('#nav-import');
   const open = await page.getAttribute('button[aria-controls="impPasteBody"]', 'aria-expanded');
@@ -57,6 +61,20 @@ async function paste(page, text) {
     await page.waitForSelector('#impConfig:not(.hidden)');
     const headerSwitch = await page.getAttribute('#impHeader', 'aria-checked');
     ok(headerSwitch === 'false', 'header auto-detect should be off for a data first row');
+    /* no header: the date is found in the data, the rest is the user's to confirm,
+       and the mapping opens itself rather than guessing from column position */
+    ok(await page.isVisible('#impColsBody'), 'mapping stayed shut on a headerless file');
+    const guessed = await page.evaluate(() => ({
+      date: document.getElementById('map_date').value,
+      ship: document.getElementById('map_ship').value,
+      notes: document.getElementById('map_notes').value
+    }));
+    ok(guessed.date === '0', 'date not inferred from the data: ' + guessed.date);
+    ok(guessed.ship === '-1' && guessed.notes === '-1', 'columns guessed from position');
+    await page.selectOption('#map_ship', '1');
+    await page.selectOption('#map_role', '2');
+    await page.selectOption('#map_name', '3');
+    await page.selectOption('#map_notes', '7');
     const label = (await page.textContent('#impGo')).trim();
     ok(label === 'Import 2 missions', 'semicolon/quoted parse gave: ' + label);
     await page.click('#impGo');
@@ -64,6 +82,7 @@ async function paste(page, text) {
     await page.click('#nav-log');
     const log = await page.textContent('#logBody');
     ok(/Parley, second pass/.test(log), 'quoted comma field lost');
+    ok(/Helm/.test(log), 'role column from the file was lost');
     ok(/line two, with a comma/.test(log), 'embedded newline field lost');
     ok(errs.length === 0, 'semicolon csv errors: ' + errs.join('|'));
     await ctx.close();
@@ -78,6 +97,7 @@ async function paste(page, text) {
     await page.click('#impGo');
     await page.waitForSelector('#tab-analytics.active');
     await paste(page, 'date,ship\n2182-05-05,UCS Havock\n');
+    await openOptions(page);
     await page.selectOption('#impMerge', 'replace');
     const banner = await page.textContent('#impPreview .banner');
     ok(/Replace will delete data/.test(banner || ''), 'replace banner missing');
@@ -116,20 +136,17 @@ async function paste(page, text) {
   /* --- 5. "Other..." stores the typed value and survives reload --------- */
   {
     const { ctx, page, errs } = await fresh(browser);
-    await page.selectOption('#suShip', '__other__');
-    await page.fill('#suShipOther', 'UCS Sable');
-    await page.selectOption('#suRole', '__other__');
-    await page.fill('#suRoleOther', 'Quartermaster');
+    await page.selectOption('#suRank', '__other__');
+    await page.fill('#suRankOther', 'Wing Commander');
     await page.waitForTimeout(150);
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('ucn.missionAnalytics.v1')).setup);
-    ok(stored.ship === 'UCS Sable', 'ship stored as: ' + stored.ship);
-    ok(stored.role === 'Quartermaster', 'role stored as: ' + stored.role);
+    ok(stored.rank === 'Wing Commander', 'rank stored as: ' + stored.rank);
     await page.reload();
     await page.evaluate(() => document.fonts.load('700 20px Orbitron'));
-    ok(await page.isVisible('#suShipOther'), 'Other text field not restored');
-    ok((await page.inputValue('#suShipOther')) === 'UCS Sable', 'Other value not restored');
-    ok(/UCS Sable/.test(await page.textContent('#hdMeta')), 'header chip missing typed ship');
+    ok(await page.isVisible('#suRankOther'), 'Other text field not restored');
+    ok((await page.inputValue('#suRankOther')) === 'Wing Commander', 'Other value not restored');
+    ok(/Wing Commander/.test(await page.textContent('#hdMeta')), 'header chip missing typed rank');
     ok(errs.length === 0, 'other-value errors: ' + errs.join('|'));
     await ctx.close();
   }
@@ -153,11 +170,12 @@ async function paste(page, text) {
   /* --- 7. collapsible + modal a11y wiring ------------------------------- */
   {
     const { ctx, page, errs } = await fresh(browser);
-    const tog = 'button[aria-controls="suOptional"]';
+    await page.click('#nav-import');
+    const tog = 'button[aria-controls="impPasteBody"]';
     ok((await page.getAttribute(tog, 'aria-expanded')) === 'false', 'collapsible starts open');
     await page.click(tog);
     ok((await page.getAttribute(tog, 'aria-expanded')) === 'true', 'aria-expanded not synced');
-    ok(await page.isVisible('#suOptional'), 'collapsible body did not open');
+    ok(await page.isVisible('#impPasteBody'), 'collapsible body did not open');
     await page.click('#nav-log');
     await page.click('#logAdd');
     await page.waitForSelector('#msSave');
@@ -177,8 +195,6 @@ async function paste(page, text) {
     const { ctx, page, errs } = await fresh(browser);
     const real = require('fs').readFileSync(
       path.resolve(__dirname, 'fixture-deployments.csv'), 'utf8');
-    /* a role on Setup should seed the import's fallback role */
-    await page.selectOption('#suRole', 'Helm');
     await paste(page, real);
     await page.waitForSelector('#impConfig:not(.hidden)');
     const map = await page.evaluate(() => ({
@@ -193,30 +209,34 @@ async function paste(page, text) {
     ok(map.name === 'Mission', 'mission column: ' + map.name);
     ok(map.type === 'Category', '"Category" not mapped to mission type: ' + map.type);
     ok(map.role === '-1', 'invented a role column: ' + map.role);
-    ok((await page.inputValue('#impRole')) === 'Helm', 'Setup role did not seed the import');
-    ok(/real-world reckoning/.test(await page.textContent('#impPreview')),
-       'no note about real-world dates');
+    ok(/No role column in this file/.test(await page.textContent('#impPreview')),
+       'no note about the missing role column');
     ok((await page.textContent('#impGo')).trim() === 'Import 17 missions',
        'row count: ' + (await page.textContent('#impGo')).trim());
 
-    /* fleet reckoning shift */
-    await page.click('#impShift');
-    await page.waitForTimeout(120);
-    ok(!/real-world reckoning/.test(await page.textContent('#impPreview')),
-       'note stayed after enabling the shift');
     await page.click('#impGo');
     await page.waitForSelector('#anBody svg');
     const after = await page.evaluate(() => {
       const m = JSON.parse(localStorage.getItem('ucn.missionAnalytics.v1')).missions;
-      return { n: m.length, first: m[0].date, last: m[m.length - 1].date, role: m[0].role };
+      return { n: m.length, first: m[0].date, last: m[m.length - 1].date,
+               setupFirst: JSON.parse(localStorage.getItem('ucn.missionAnalytics.v1'))
+                             .setup.firstDeployment };
     });
     ok(after.n === 17, 'imported ' + after.n);
-    ok(after.first === '2182-05-08', 'shift wrong, first date ' + after.first);
-    ok(after.last === '2182-09-01', 'shift wrong, last date ' + after.last);
-    ok(after.role === 'Helm', 'fallback role not applied: ' + after.role);
-    const tiles = await page.textContent('#anBody');
-    ok(/Both Ships/.test(tiles), '"Both Ships" value lost');
-    ok(!/Unspecified/.test(tiles), 'role fallback left Unspecified rows');
+    ok(after.first === '2026-05-08', 'dates altered on import: ' + after.first);
+    ok(after.last === '2026-09-01', 'dates altered on import: ' + after.last);
+    ok(after.setupFirst === '2026-05-08', 'first deployment not derived: ' + after.setupFirst);
+    const anText = await page.textContent('#anBody');
+    ok(/Both Ships/.test(anText), '"Both Ships" value lost');
+    ok(/No role recorded on any mission/.test(anText), 'no guidance for the empty role section');
+    ok(/No missions rated yet/.test(anText), 'no empty state for ratings');
+
+    /* rate one, then check it reaches the report */
+    await page.click('#nav-log');
+    await page.locator('.stars-host').first().locator('[data-star="5"]').click();
+    await page.waitForTimeout(120);
+    await page.click('#nav-analytics');
+    ok(/Average rating/.test(await page.textContent('#anBody')), 'rating not picked up');
     await page.evaluate(() => document.getElementById('anExport').click());
     await page.waitForTimeout(2500);
     ok(errs.length === 0, 'real csv errors: ' + errs.join('|'));

@@ -1,8 +1,8 @@
 # UCN Mission Analytics
 
-A fan-made mission tracker for [Bridge Command](https://bridgecommand.co.uk).
-Import a CSV of the missions you have flown and get monthly counts, ship and
-role breakdowns, charts, and a printable PDF service record.
+A fan-made service record for [Bridge Command](https://bridgecommand.co.uk).
+Import your deployment CSV and get monthly counts, ship and mission-type
+breakdowns, charts, star ratings, and a printable PDF service record.
 
 **Fan-made. Not affiliated with, endorsed by, or connected to Bridge Command or
 The London Space Elevator Ltd.**
@@ -17,50 +17,55 @@ enter stays in that browser's local storage until you delete it.
 
 Designed for a phone in a dark room: dark-only, dense, one-handed, ~414×896.
 
+You type two things: your **name** and your **rank**. Your **date of first
+deployment** fills itself in from the earliest mission in your CSV (you can
+override it). Everything else — dates, ships, mission names, mission types —
+comes out of the file.
+
+Two things are yours to add afterwards, both optional:
+
+- **Role** — which station you played. A dropdown on each mission in the Log
+  tab, with a free-text option for anything not on the list.
+- **Rating** — out of 5 stars, tapped straight on the mission card.
+
 ### Tabs
 
 | Tab | What it does |
 |---|---|
-| Setup | Who is logging and what the sortie is. Heads the PDF cover. |
-| Import | Load a CSV, map its columns, review what will be skipped, import. |
-| Charts | Missions per month, cumulative record, ship / role / type / outcome splits, filters, PDF export. |
-| Log | Every logged mission as a card. Add, edit and delete by hand. |
+| Setup | Name, rank, and the first-deployment date read off your CSV. |
+| Import | Load a CSV, check what it read, import. |
+| Charts | Missions per month, cumulative record, ship / role / type / rating splits, filters, PDF export. |
+| Log | Every mission as a card. Rate it, set a role, edit or delete. |
 | More | CSV template, JSON backup and restore, clearing, licences, disclaimer. |
 
 ### CSV format
 
-Only a date column is required; everything else is optional. Download a
-template from the More tab.
+A Bridge Command deployment export works as-is:
 
 ```csv
-date,ship,role,mission,type,outcome,duration,notes
-2182-01-14,UCS Takanami,Helm,Silent Harbour,Frontline,Objective met,90,Lost port thruster
-2182-02-03,UCS Havock,Comms,Ridgeline Parley,Diplomacy,Stood down,75,
+Date,Ship,Category,Mission
+2026-08-20,UCS Takanami,Exploration,OPERATION SARGASSO
+2026-08-06,UCS Havock,Frontline,CELL 06-05
 ```
+
+Only a date column is required; `Ship`, `Category` (mission type) and `Mission`
+are picked up by name. `Role`, `Rating`, `Outcome`, `Duration` and `Notes` are
+read too if your file has them. Download a template from the More tab.
 
 - Comma, semicolon, tab and pipe separators are detected automatically, as are
   quoted fields containing separators or newlines.
-- Dates may be ISO (`2182-01-14`), day-first, month-first, or written out
-  (`14 Jan 2182`). Where day and month are both 12 or under the file is
-  ambiguous; the tool says how many rows were affected and defaults to
-  day-first. Two-digit years are refused rather than guessed.
-- Duration accepts minutes (`90`), `1h 30m`, or `1:30`.
-- If there is no header row, columns are read in template order, and the date
-  column is found by looking at the data.
+- Dates are taken exactly as written — a 2026 export stays 2026, and the report
+  is stamped in the same reckoning. Nothing is shifted behind your back.
+- ISO, day-first, month-first and written-out (`14 Jan 2182`) dates all parse.
+  Where day and month are both 12 or under the file is ambiguous; the tool says
+  how many rows were affected and defaults to day-first. Two-digit years are
+  refused rather than guessed.
+- Columns are matched by header name, and the date column can also be found by
+  reading the data. Nothing is ever guessed from column *position* — a file
+  whose columns sit in an unexpected order would be mislabelled silently, so a
+  headerless file opens the mapping and asks.
 - Rows that cannot be used are never dropped quietly: each one is listed with a
   reason, on screen and in the PDF.
-
-Two reading options exist for files that don't carry everything:
-
-- **Shift dates to fleet reckoning (+156 years)** — off by default. A real-world
-  export dated 2026 imports as 2026, which reads oddly next to a log stamp of
-  2182. Turn this on and the whole record moves to fleet reckoning. The import
-  preview says when it spots real-world dates. It is opt-in so a file already
-  written in 2182 is never shifted twice.
-- **Role for rows with none** — a file with no role column would leave the role
-  breakdown empty. This applies one role to every row that has none, and is
-  pre-filled from the Role you set on the Setup tab. Individual missions can
-  still be corrected on the Log tab.
 
 Imported text is treated as data throughout. It is escaped before it reaches
 the DOM and drawn as plain text in the PDF; it is never evaluated.
@@ -73,7 +78,7 @@ src/index.template.html     source, with placeholders for the vendored blobs
 build/build.py              inlines jsPDF and the four TTFs into index.html
 vendor/fonts/               Exo 2 Regular/Bold/Italic, Orbitron Bold (+ OFL)
 vendor/jspdf/               jsPDF 4.2.1 UMD build (+ MIT licence)
-test/                       Playwright checks and CSV fixtures
+test/                       Playwright checks and a CSV fixture
 ```
 
 ### Rebuilding
@@ -87,8 +92,8 @@ Edit `src/index.template.html`, never `index.html` — the latter is generated.
 ### Tests
 
 ```sh
-NODE_PATH=/opt/node22/lib/node_modules node test/smoke.js        # happy path, offline, layout, PDF
-NODE_PATH=/opt/node22/lib/node_modules node test/edge.js         # odd CSVs, empty state, blocked storage, a11y, real export
+NODE_PATH=/opt/node22/lib/node_modules node test/smoke.js        # happy path, offline, ratings, layout, PDF
+NODE_PATH=/opt/node22/lib/node_modules node test/edge.js         # odd CSVs, empty state, blocked storage, a11y
 NODE_PATH=/opt/node22/lib/node_modules node test/pdf-preview.js  # renders the PDF's drawing calls to PNGs
 ```
 
@@ -101,7 +106,13 @@ in `.smoke/pdf/`.
 
 `test/fixture-deployments.csv` is a real Bridge Command deployment export, kept
 as a regression fixture: quoted fields throughout, a `Category` column instead
-of `Type`, no role column, a `Both Ships` value, and real-world years.
+of `Type`, no role column, and a `Both Ships` value.
+
+## A note on stars
+
+No embedded font carries U+2605, and jsPDF omits a glyph the font lacks without
+raising anything. Ratings are therefore drawn as shapes in both places — inline
+SVG on screen, vector polygons in the PDF — rather than typed as characters.
 
 ## Licences
 
