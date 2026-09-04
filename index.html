@@ -350,6 +350,88 @@ nav{
   padding:9px; overflow-x:auto; white-space:pre;
 }
 .skiplist{ max-height:180px; overflow-y:auto; }
+
+/* =====================================================================
+   DESKTOP  (>=900px)
+   The bottom nav becomes a left rail, and the panels get the width to
+   lay their blocks out side by side. Same palette, same components -
+   only the shell and the number of columns change.
+   ===================================================================== */
+@media (hover:hover) and (pointer:fine){
+  .nav-btn:hover{ color:var(--white); background:rgba(255,255,255,0.04); }
+  .btn-quiet:hover, .coll-tog:hover{ border-color:var(--orange); }
+  .btn-add:hover{ background:rgba(221,122,43,0.2); }
+  .btn-primary:hover:not(:disabled){ filter:brightness(1.07); }
+  .btn-danger:hover{ background:rgba(178,58,58,0.3); }
+  .del:hover{ background:rgba(178,58,58,0.34); }
+  .star-btn:hover{ transform:scale(1.12); }
+  .hd-btn:hover{ border-color:var(--orange); }
+}
+.star-btn{ transition:transform .12s ease; }
+
+@media (min-width:900px){
+  .hd-inner{ max-width:1400px; padding:9px 24px; }
+  .hd-title{ font-size:17px; }
+  .hd-sub{ font-size:9.5px; }
+  .hd-mark{ width:30px; height:30px; flex:0 0 30px; }
+
+  nav{
+    top:var(--header-h); bottom:0; right:auto; width:212px;
+    border-top:none; border-right:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(15,23,48,0.97) 0%, rgba(11,15,28,0.99) 100%);
+    padding-bottom:0; overflow-y:auto;
+  }
+  .nav-inner{ max-width:none; flex-direction:column; padding:12px 10px; gap:2px; }
+  .nav-btn{
+    flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:11px;
+    padding:11px 13px; border-radius:10px; text-align:left;
+  }
+  .nav-btn .ic{ font-size:17px; width:20px; text-align:center; }
+  .nav-btn .lb{ font-size:11px; letter-spacing:0.09em; }
+  .nav-btn.active{ background:rgba(221,122,43,0.1); }
+  .nav-btn.active::before{
+    top:8px; bottom:8px; left:0; right:auto; width:3px; height:auto; border-radius:0 2px 2px 0;
+  }
+
+  main{
+    max-width:none; margin:0 0 0 212px;
+    padding-bottom:48px;
+  }
+  .panel{ max-width:1180px; margin:0 auto; padding:18px 24px 48px; }
+  /* Forms stay legible instead of stretching to the full width. */
+  #tab-setup, #tab-more{ max-width:640px; margin:0; }
+  #tab-import{ max-width:900px; margin:0; }
+  #anFilters{ max-width:760px; }
+  /* A full-width orange bar across 1180px is a billboard, not a button. */
+  .panel > .btn-primary, .panel > .btn-add, .panel > .btn-quiet,
+  .panel > .btn-danger, .panel > .filelabel, #impConfig > .btn-primary{ max-width:360px; }
+  #anExport{ margin-left:auto; }
+
+  .tiles{ grid-template-columns:repeat(4, 1fr); }
+
+  /* Analytics becomes a two-column board. */
+  #anBody{
+    display:grid; grid-template-columns:1fr 1fr; gap:0 24px; align-items:start;
+  }
+  .an-block.wide{ grid-column:1 / -1; }
+  .an-block h2.sec{ margin-top:20px; }
+
+  #logBody{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; align-items:start; }
+  #impMapping{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  #impMapping .row2{ display:contents; }
+
+  .toast{ left:calc(50% + 106px); bottom:28px; }
+
+  /* The sheet stays bottom-anchored, as specified, but floats clear of the edge. */
+  .scrim{ align-items:flex-end; }
+  .sheet{ max-width:560px; margin-bottom:0; }
+}
+
+@media (min-width:1400px){
+  .panel{ max-width:1340px; }
+  #logBody{ grid-template-columns:1fr 1fr 1fr; }
+  .tiles{ grid-template-columns:repeat(4, 1fr); }
+}
 </style>
 <!-- Vendored font binaries (Exo 2 + Orbitron, SIL Open Font License 1.1).
      Base64 TTFs are used twice: once for CSS @font-face and once for jsPDF's VFS. -->
@@ -1979,7 +2061,8 @@ function meters(rows, total){
     pct = Math.round(rows[i].n / top * 100);
     s += '<div class="meter">' +
       '<span class="meter-label" title="' + esc(rows[i].key) + '">' + esc(rows[i].key) + '</span>' +
-      '<span class="meter-track"><span class="meter-fill" style="width:' + pct + '%"></span></span>' +
+      '<span class="meter-track"><span class="meter-fill" style="width:' + pct +
+        '%' + (rows[i].n ? '' : ';min-width:0') + '"></span></span>' +
       '<span class="meter-val">' + rows[i].n + ' (' +
         Math.round(rows[i].n / (total || 1) * 100) + '%)</span>' +
       '</div>';
@@ -1996,6 +2079,12 @@ function renderFilters(){
   fillSelect(byId('flRole'), distinctValues('role'), f.role, { placeholder:'All roles' });
   fillSelect(byId('flType'), distinctValues('type'), f.type, { placeholder:'All types' });
   fillSelect(byId('flYear'), distinctYears(), f.year, { placeholder:'All years' });
+}
+/* Each section is its own block so a wide screen can lay them out side by
+   side. On a phone the blocks stack and read exactly as before. */
+function anBlock(title, inner, wide){
+  return '<section class="an-block' + (wide ? ' wide' : '') + '">' +
+         '<h2 class="sec">' + esc(title) + '</h2>' + inner + '</section>';
 }
 function renderAnalytics(){
   renderFilters();
@@ -2019,83 +2108,74 @@ function renderAnalytics(){
   var a = aggregate(list);
   var html = '';
 
-  html += '<h2 class="sec">At a glance</h2>';
-  html += '<p class="sub">' + esc(monthLabel(monthKeyOf(a.firstDate))) + ' to ' +
-          esc(monthLabel(monthKeyOf(a.lastDate))) + ' — ' + a.months.length +
-          ' month' + (a.months.length === 1 ? '' : 's') + ' spanned</p>';
-  html += '<div class="tiles">' +
-    tile('Missions', String(a.total), 'accent') +
-    tile('Ships served', String(a.byShip.length)) +
-    tile('Active months', a.activeMonths + ' / ' + a.months.length) +
-    tile('Avg per active month', fmt1(a.avgPerActiveMonth)) +
-    tileSm('Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—') +
-    tileSm('Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—') +
+  var glance = '<p class="sub">' + esc(monthLabel(monthKeyOf(a.firstDate))) + ' to ' +
+    esc(monthLabel(monthKeyOf(a.lastDate))) + ' — ' + a.months.length +
+    ' month' + (a.months.length === 1 ? '' : 's') + ' spanned</p>' +
+    '<div class="tiles">' +
+      tile('Missions', String(a.total), 'accent') +
+      tile('Ships served', String(a.byShip.length)) +
+      tile('Active months', a.activeMonths + ' / ' + a.months.length) +
+      tile('Avg per active month', fmt1(a.avgPerActiveMonth)) +
+      tileSm('Busiest month', a.busiest ? monthLabel(a.busiest.key) + ' (' + a.busiest.n + ')' : '—') +
+      tileSm('Most flown role', a.namedRoles.length ? a.namedRoles[0].key : '—') +
+      (a.ratedCount ? tile('Average rating', fmt1(a.avgRating) + ' / 5', 'accent') +
+                      tile('Missions rated', a.ratedCount + ' / ' + a.total) : '') +
+      (a.durationSamples ? tileSm('Time on station', hoursMins(a.totalMinutes)) +
+                           tileSm('Avg mission length',
+                             hoursMins(Math.round(a.totalMinutes / a.durationSamples))) : '') +
     '</div>';
-  if (a.ratedCount){
-    html += '<div class="tiles">' +
-      tile('Average rating', fmt1(a.avgRating) + ' / 5', 'accent') +
-      tile('Missions rated', a.ratedCount + ' / ' + a.total) +
-      '</div>';
-  }
-  if (a.durationSamples){
-    html += '<div class="tiles">' +
-      tileSm('Time on station', hoursMins(a.totalMinutes)) +
-      tileSm('Avg mission length', hoursMins(Math.round(a.totalMinutes / a.durationSamples))) +
-      '</div>';
-    if (a.durationSamples < a.total){
-      html += '<p class="sub">Duration recorded for ' + a.durationSamples + ' of ' +
+  if (a.durationSamples && a.durationSamples < a.total){
+    glance += '<p class="sub">Duration recorded for ' + a.durationSamples + ' of ' +
               a.total + ' missions.</p>';
-    }
   }
+  html += anBlock('At a glance', glance, true);
 
-  html += '<h2 class="sec">Missions per month</h2>';
-  html += '<div class="card"><div class="chart-wrap">' +
+  html += anBlock('Missions per month',
+    '<div class="card"><div class="chart-wrap">' +
     svgBars(a.months.map(monthLabel), a.counts,
             'Bar chart of missions per month, ' + a.total + ' missions across ' +
             a.months.length + ' months') +
     '</div><p class="chart-cap">Axis pinned to ' +
     pinnedMax(Math.max.apply(null, a.counts.concat([0])), 10, 5) +
-    ' so reports stay comparable</p></div>';
+    ' so reports stay comparable</p></div>');
 
-  html += '<h2 class="sec">Cumulative record</h2>';
-  html += '<div class="card"><div class="chart-wrap">' +
+  html += anBlock('Cumulative record',
+    '<div class="card"><div class="chart-wrap">' +
     svgLine(a.months.map(monthLabel), a.cumulative,
             'Line chart of cumulative missions, rising to ' + a.total) +
-    '</div><p class="chart-cap">Running total, one point per month</p></div>';
+    '</div><p class="chart-cap">Running total, one point per month</p></div>');
 
-  html += '<h2 class="sec">By ship</h2>';
-  html += '<div class="card">' + meters(a.byShip, a.total) + '</div>';
+  html += anBlock('By ship', '<div class="card">' + meters(a.byShip, a.total) + '</div>');
 
-  html += '<h2 class="sec">By role</h2>';
-  html += '<p class="sub">The station you played, counted across every logged mission.</p>';
+  var roleInner = '<p class="sub">The station you played, counted across every ' +
+                  'logged mission.</p>';
   if (a.byRole.length === 1 && a.byRole[0].key === UNSPEC){
-    html += '<p class="empty">No role recorded on any mission. Map a role column when ' +
-            'you import, set a role for rows that have none, or add one per mission ' +
-            'on the Log tab.</p>';
+    roleInner += '<p class="empty">No role recorded on any mission. Map a role column ' +
+                 'when you import, or add one per mission on the Log tab.</p>';
   } else {
-    html += '<div class="card">' + meters(a.byRole, a.total) + '</div>';
+    roleInner += '<div class="card">' + meters(a.byRole, a.total) + '</div>';
   }
+  html += anBlock('By role', roleInner);
 
-  html += '<h2 class="sec">By mission type</h2>';
-  html += '<div class="card">' + meters(a.byType, a.total) + '</div>';
+  html += anBlock('By mission type', '<div class="card">' + meters(a.byType, a.total) + '</div>');
 
-  html += '<h2 class="sec">Ratings</h2>';
+  var rateInner;
   if (!a.ratedCount){
-    html += '<p class="empty">No missions rated yet. Tap the stars on any mission ' +
-            'on the Log tab.</p>';
+    rateInner = '<p class="empty">No missions rated yet. Tap the stars on any mission ' +
+                'on the Log tab.</p>';
   } else {
     var rrows = [], ri;
     for (ri = 5; ri >= 1; ri--){
       rrows.push({ key: ri + (ri === 1 ? ' star' : ' stars'), n: a.ratingCounts[ri - 1] });
     }
-    html += '<p class="sub">Average ' + fmt1(a.avgRating) + ' out of 5 across ' +
-            a.ratedCount + ' rated mission' + (a.ratedCount === 1 ? '' : 's') + '.</p>';
-    html += '<div class="card">' + meters(rrows, a.ratedCount) + '</div>';
+    rateInner = '<p class="sub">Average ' + fmt1(a.avgRating) + ' out of 5 across ' +
+                a.ratedCount + ' rated mission' + (a.ratedCount === 1 ? '' : 's') + '.</p>' +
+                '<div class="card">' + meters(rrows, a.ratedCount) + '</div>';
   }
+  html += anBlock('Ratings', rateInner);
 
   if (a.byOutcome.length && !(a.byOutcome.length === 1 && a.byOutcome[0].key === UNSPEC)){
-    html += '<h2 class="sec">By outcome</h2>';
-    html += '<div class="card">' + meters(a.byOutcome, a.total) + '</div>';
+    html += anBlock('By outcome', '<div class="card">' + meters(a.byOutcome, a.total) + '</div>');
   }
   box.innerHTML = html;
 }
@@ -2677,8 +2757,10 @@ function pdfCatBars(doc, rows, total){
     setC(doc, 'd', C_LINE);
     doc.setLineWidth(0.2);
     doc.rect(trackX, pdfCursorY + 0.9, trackW, 3.2, 'S');
-    setC(doc, 'f', C_ORANGE);
-    doc.rect(trackX, pdfCursorY + 0.9, trackW * (rows[i].n / top), 3.2, 'F');
+    if (rows[i].n){
+      setC(doc, 'f', C_ORANGE);
+      doc.rect(trackX, pdfCursorY + 0.9, trackW * (rows[i].n / top), 3.2, 'F');
+    }
     doc.setFontSize(8.5);
     setC(doc, 't', C_NAVY);
     doc.text(rows[i].n + ' (' + Math.round(rows[i].n / (total || 1) * 100) + '%)',
