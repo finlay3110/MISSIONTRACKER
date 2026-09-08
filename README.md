@@ -17,6 +17,13 @@ enter stays in that browser's local storage until you delete it.
 
 Designed for a phone in a dark room: dark-only, dense, one-handed, ~414×896.
 
+On a screen 900px or wider it lays itself out for a desktop: the bottom nav
+becomes a left rail, the analytics tab becomes a two-column board, the mission
+log becomes a card grid (three across past 1400px), and forms stay narrow
+rather than stretching. Same palette, same components — only the shell and the
+column count change. Narrow the window and it goes straight back to the phone
+layout.
+
 You type two things: your **name** and your **rank**. Your **date of first
 deployment** fills itself in from the earliest mission in your CSV (you can
 override it). Everything else — dates, ships, mission names, mission types —

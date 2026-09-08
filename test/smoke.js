@@ -152,6 +152,47 @@ const CSV = fs.readFileSync(path.resolve(__dirname, 'fixture-deployments.csv'), 
   const hiddenAfterReload = await page.evaluate(() =>
     document.getElementById('hdMeta').className.indexOf('hidden') > -1);
 
+  /* --- desktop: left rail, multi-column board, no h-scroll --- */
+  const desk = await ctx.newPage();
+  const deskErr = [];
+  desk.on('pageerror', e => deskErr.push(e.message));
+  desk.on('request', r => { if (!r.url().startsWith('file://')) deskErr.push('NET ' + r.url()); });
+  await desk.setViewportSize({ width: 1440, height: 900 });
+  await desk.goto(FILE);
+  await desk.evaluate(() => Promise.all([document.fonts.load('700 20px Orbitron'),
+                                         document.fonts.load('400 20px "Exo 2"')]));
+  await desk.click('#nav-analytics');
+  await desk.waitForSelector('#anBody svg');
+  const wide = await desk.evaluate(() => {
+    const nav = document.querySelector('nav').getBoundingClientRect();
+    const hdr = document.getElementById('appHeader').getBoundingClientRect();
+    const cta = document.getElementById('anExport').getBoundingClientRect();
+    return {
+      scrollW: document.documentElement.scrollWidth,
+      clientW: document.documentElement.clientWidth,
+      navIsRail: nav.height > nav.width && Math.round(nav.left) === 0,
+      navClearsHeader: Math.round(nav.top) >= Math.round(hdr.bottom),
+      mainLeft: Math.round(document.querySelector('main').getBoundingClientRect().left),
+      navW: Math.round(nav.width),
+      anCols: getComputedStyle(document.getElementById('anBody')).gridTemplateColumns.split(' ').length,
+      logCols: getComputedStyle(document.getElementById('logBody')).gridTemplateColumns.split(' ').length,
+      ctaWidth: Math.round(cta.width),
+      zeroMeterFills: [...document.querySelectorAll('#anBody .meter')]
+        .filter(m => /\(0%\)/.test(m.textContent))
+        .map(m => Math.round(m.querySelector('.meter-fill').getBoundingClientRect().width))
+    };
+  });
+  await desk.screenshot({ path: path.join(OUT, '08-desktop.png') });
+  /* narrow again: the rail must give way to the bottom nav */
+  await desk.setViewportSize({ width: 414, height: 896 });
+  await desk.waitForTimeout(200);
+  const narrowAgain = await desk.evaluate(() => {
+    const nav = document.querySelector('nav').getBoundingClientRect();
+    return { navIsBar: nav.width > nav.height,
+             scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+  });
+  await desk.close();
+
   await browser.close();
 
   const report = {
@@ -166,7 +207,7 @@ const CSV = fs.readFileSync(path.resolve(__dirname, 'fixture-deployments.csv'), 
     analyticsMentionsRating: /Average rating/.test(anText),
     pdf: { name: pdfName, bytes: pdfSize, magic: head },
     layout, headerHiddenAfterClick: hiddenAfterClick, headerHiddenAfterReload: hiddenAfterReload,
-    persisted
+    persisted, desktop: wide, backToNarrow: narrowAgain, desktopErrors: deskErr
   };
   console.log(JSON.stringify(report, null, 2));
 
@@ -199,6 +240,18 @@ const CSV = fs.readFileSync(path.resolve(__dirname, 'fixture-deployments.csv'), 
   F(hiddenAfterClick && hiddenAfterReload, 'hide toggle not remembered');
   F(persisted.missions === 17 && persisted.rated === 3, 'ratings did not persist');
   F(persisted.first === '2026-05-08', 'first deployment did not persist');
+  F(!deskErr.length, 'desktop errors: ' + deskErr.join(' | '));
+  F(wide.scrollW <= wide.clientW, 'desktop scrolls horizontally');
+  F(wide.navIsRail, 'nav did not become a left rail on desktop');
+  F(wide.navClearsHeader, 'rail overlaps the fixed header');
+  F(wide.mainLeft === wide.navW, 'main does not clear the rail: ' + wide.mainLeft + ' vs ' + wide.navW);
+  F(wide.anCols === 2, 'analytics board is not two columns: ' + wide.anCols);
+  F(wide.logCols === 3, 'log grid is not three columns at 1440: ' + wide.logCols);
+  F(wide.ctaWidth <= 380, 'desktop CTA stretched to ' + wide.ctaWidth + 'px');
+  F(wide.zeroMeterFills.every(w => w === 0),
+    'a zero-count meter still draws a fill: ' + wide.zeroMeterFills.join(','));
+  F(narrowAgain.navIsBar, 'nav did not return to a bottom bar when narrowed');
+  F(!narrowAgain.scrolls, 'narrowing back left a horizontal scrollbar');
   if (fail.length) { console.error('\nFAIL:\n - ' + fail.join('\n - ')); process.exit(1); }
   console.log('\nPASS');
 })();
